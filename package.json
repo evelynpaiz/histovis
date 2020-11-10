@@ -1,0 +1,37 @@
+{
+  "name": "histovis",
+  "version": "0.1.1",
+  "description": "threejs + itowns: historical image visualization and interaction",
+  "main": "src/main.js",
+  "gh-pages-deploy": {
+    "commit": "deploy",
+    "post": [
+      "build",
+      "clean-source"
+    ],
+    "noprompt": false
+  },
+  "scripts": {
+    "build": "webpack -p",
+    "start": "webpack-dev-server -d --inline --hot",
+    "deploy": "gh-pages-deploy -- 'gh-pages-deploy'",
+    "clean-source": "rimraf webpack.config.js src package.json package-lock.json"
+  },
+  "repository": "epaizreyes/histovis",
+  "bugs": "https://github.com/epaizreyes/histovis/issues",
+  "author": "Evelyn Paiz",
+  "license": "(CECILL-B OR MIT)",
+  "devDependencies": {
+    "gh-pages-deploy": "^0.5.1",
+    "webpack": "^4.44.2",
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0"
+  },
+  "directories": {
+    "example": "examples"
+  },
+  "files": [
+    "src",
+    "examples"
+  ]
+}
