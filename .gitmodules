@@ -1,3 +1,6 @@
 [submodule "modules/photogrammetric-camera"]
 	path = modules/photogrammetric-camera
 	url = https://github.com/epaizreyes/photogrammetric-camera.git
+[submodule "modules/itowns"]
+	path = modules/itowns
+	url = https://github.com/epaizreyes/itowns.git
