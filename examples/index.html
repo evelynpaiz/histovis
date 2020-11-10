@@ -1,8 +1,127 @@
+<!DOCTYPE html>
 <html>
-  <head>
-    <title>Getting Started</title>
-  </head>
-  <body>
-    <script src="../dist/itowns.js"></script>
-  </body>
+    <head>
+        <meta charset="utf-8">
+        <title>HistoVis - Home</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link rel="stylesheet" href="style/w3.css">
+        <link rel="stylesheet" href="style/style.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+        <link rel="shortcut icon" href="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.ico">
+    </head>
+    <body>
+        <!-- Sidebar with image -->
+        <nav class="w3-sidebar w3-hide-medium w3-hide-small" style="width:40%">
+            <div class="bgimg"></div>
+        </nav>
+
+        <!-- Page Content -->
+        <div class="w3-main w3-padding-large" style="margin-left:40%">
+
+            <!-- Header -->
+            <header class="w3-container w3-center" style="padding:128px 16px 50px" id="home">
+                <h1 class="w3-jumbo">
+                    <img src="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.png" style="width:10%">
+                    <b>HistoVis</b>
+                </h1>
+                <p><em>A spatio-temporal, immersive and interactive navigation within a 3D 
+                    environment that is enriched with old photographs.</em></p>
+                <p>HistoVis is a WebGL based application using <a href="https://threejs.org" class="w3-hover-text-green">three.js</a>
+                    & <a href="http://www.itowns-project.org" class="w3-hover-text-green">itowns</a> frameworks.  
+                </p>
+                <button onclick="window.location.href='https://github.com/epaizreyes/histovis';" class="w3-button w3-light-gray w3-padding-large w3-margin-top">
+                    <i class="fa fa-github fa-fw"></i> Github Repository
+                </button>
+            </header>
+
+            <!-- Context Section -->
+            <div class="w3-content w3-container w3-padding-64" id="about">
+                <h3 class="w3-center w3-xxlarge"><b>About</b></h1>
+                <div class="w3-half w3-margin-bottom">
+                    <h5 class = "w3-center">
+                        Dissertation project centered on a continuous immersive visualization and navigation 
+                        through time and space of historical image collections. 
+                    </h5>
+                    <p class = "w3-justify">
+                        A co-visualization of the historical photos within a 3D model of the photographed scene
+                        is proposed and the research aims for: (i) the visualization (saliently and spatially) of 
+                        these photographs; (ii) the treatment of scientific obstacles (large data volume, heterogeneity
+                            between images, distortions, and data uncertainties) that appear when old pictures are placed 
+                            in a contemporary 3D environment.
+                    </p>
+                </div>
+                <div class="w3-half w3-center">
+                    <img src="https://histovis.s3.eu-west-3.amazonaws.com/samples/camera.jpeg" style="width:100%">
+                </div>
+            </div>
+
+            <!-- Funding Section -->
+            <div class="w3-content w3-container w3-padding-64" id="funding">
+                <h3 class="w3-center w3-xxlarge">Funding</h3>
+                <div class="w3-center">
+                    <p>
+                        This study is funded by the French Research Agency ANR, in the framework of the ALEGORIA ANR-17-CE38-0014-01 (Advanced Linking and Exploitation of diGitized 
+                        geOgRaphic Iconographic heritAge) project (2018-2022).
+                    </p>
+                    <div class="w3-row-padding " style="margin:0 -16px">
+                        <div class="w3-half">
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/samples/lapie1.jpg" style="width:100%">
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/samples/frejus.jpg" style="width:100%">
+                        </div>
+        
+                        <div class="w3-half">
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/samples/niepce2.jpg" style="width:100%">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Section -->
+            <div class="w3-content w3-container w3-padding-64" id="about">
+                <h3 class="w3-center w3-xxlarge">Contact</h3>
+
+                <img src="https://www.umr-lastig.fr/geovis/faces/sido.png" alt="Avatar" class="w3-left w3-circle w3-margin-right" style="width:80px">
+                <p>
+                    <span class="w3-large w3-text-black w3-margin-right">
+                    <a href="https://www.umr-lastig.fr/schristophe_homepage/" class="w3-hover-text-green">Sidonie CHRISTOPHE</a>
+                </p>
+                <p></span>Senior Researcher (Head of <a href="https://www.umr-lastig.fr/geovis/" class="w3-hover-text-green">GEOVIS</a> Team).</p><br>
+            
+                <img src="https://www.umr-lastig.fr/geovis/faces/bredif.jpg" alt="Avatar" class="w3-left w3-circle w3-margin-right" style="width:80px">
+                <p>
+                    <span class="w3-large w3-text-black w3-margin-right">
+                    <a href="https://www.umr-lastig.fr/mathieu-bredif/" class="w3-hover-text-green">Mathieu BR&Eacute;DIF</a>
+                </p>
+                <p></span>Senior Researcher.</p><br>
+                
+                <img src="https://www.umr-lastig.fr/geovis/faces/paiz-reyes.jpg" alt="Avatar" class="w3-left w3-circle w3-margin-right" style="width:80px">
+                <p>
+                    <span class="w3-large w3-text-black w3-margin-right">
+                    <a href="https://www.umr-lastig.fr/evelyn-paiz/" class="w3-hover-text-green">Evelyn PAIZ</a>
+                </p>
+                <p></span>PhD Student.</p><br>
+            </div>
+
+            <!-- Footer -->
+            <footer class="w3-container w3-padding-64 w3-light-grey w3-center w3-opacity w3-xlarge footer-logos" style="margin:-24px">
+                <p class="w3-medium">Powered by:</p>
+                <i class="w3-hover-opacity">
+                    <a href="http://www.ign.fr">
+                        <img src="https://histovis.s3.eu-west-3.amazonaws.com/icons/ign.png" alt="IGN">
+                    </a>
+                </i>
+                <i class="w3-hover-opacity">
+                    <a href="http://www.alegoria-project.fr">
+                        <img src="https://histovis.s3.eu-west-3.amazonaws.com/icons/alegoria.png" alt="Alegoria">
+                    </a>
+                </i>
+                <i class="w3-hover-opacity">
+                    <a href="https://www.univ-gustave-eiffel.fr">
+                        <img src="https://histovis.s3.eu-west-3.amazonaws.com/icons/uge.png" alt="Univ. Gustave Eiffel">
+                    </a>
+                </i>
+            </footer>
+
+        </div>
+    </body>
 </html>
