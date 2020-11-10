@@ -27,6 +27,10 @@
     "webpack-cli": "^3.3.12",
     "webpack-dev-server": "^3.11.0"
   },
+  "dependencies": {
+    "three": "^0.116.1",
+    "photogrammetric-camera": "file:modules/photogrammetric-camera"
+  },
   "directories": {
     "example": "examples"
   },
