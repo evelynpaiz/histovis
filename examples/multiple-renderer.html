@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta charset="utf-8">
-        <title>HistoVis - Distorted View Renderer</title>
+        <title>HistoVis - Multiple Image Visualization</title>
         <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
         <link rel="shortcut icon" href="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.ico">
         <style>
@@ -34,7 +34,7 @@
             var PLYLoader = histovis.PLYLoader;
         </script>
 
-        <script src="../dist/photogrammetric-camera.js"></script>
+<script src="../dist/photogrammetric-camera.js"></script>
         <script>
             // Files Management
             var FetchSource = histovis.photogrammetricCamera.FetchSource;
@@ -45,12 +45,11 @@
             var GoogleOrientationParser = histovis.GoogleOrientationParser;
             // Materials
             var OrientedImageMaterial = histovis.photogrammetricCamera.OrientedImageMaterial;
+            var MultipleOrientedImageMaterial = histovis.photogrammetricCamera.MultipleOrientedImageMaterial;
             var imageVS = histovis.photogrammetricCamera.imageVS;
             var imageFS = histovis.photogrammetricCamera.imageFS;
-            var distortVS = histovis.photogrammetricCamera.distortVS;
-            var distortFS = histovis.photogrammetricCamera.distortFS;
-            var sceneVS = histovis.photogrammetricCamera.sceneVS;
-            var sceneFS = histovis.photogrammetricCamera.sceneFS;
+            var multipleVS = histovis.photogrammetricCamera.multipleVS;
+            var multipleFS = histovis.photogrammetricCamera.multipleFS;
             // Photogrammetric camera
             var PhotogrammetricCamera = histovis.photogrammetricCamera.PhotogrammetricCamera;
         </script>
@@ -58,10 +57,6 @@
         <script src="js/helper/photogrammetricHelper.js"></script>
         <script src="js/helper/photogrammetricHelperGlobe.js"></script>
         <script>
-            /* ---------------------- Variables ---------------------- */
-            var tScene, tPlane, tCamera;
-            var sceneMaterial;
-
             /* ------------------------- Main ------------------------ */
             init();
             var gui = initGUI();
@@ -94,30 +89,20 @@
                 // Materials
                 basicMaterial = initBasicMaterial();
                 wireMaterial = initWireMaterial();
-                [textureMaterialUniforms, textureMaterial] = initTextureMaterial(distortVS, distortFS, uvTexture);
+                [multipleTextureMaterialUniforms, multipleTextureMaterial] = initMultipleTextureMaterial(
+                    multipleVS, multipleFS, uvTexture, view.mainLoop.gfxEngine.renderer);
                 viewMaterialUniforms = initCameraMaterialUniforms(imageVS, imageFS, uvTexture);
-                sceneMaterialUniforms = initSceneMaterialUniforms(sceneVS, sceneFS, textureMaterial);
-                sceneMaterial = new THREE.ShaderMaterial(sceneMaterialUniforms);
 
                 // Environment
                 environment = new THREE.Group();
-                backgroundSphere = initBackgroundSphere(textureMaterial);
-                worldPlane = initWorldPlane(textureMaterial);
+                backgroundSphere = initBackgroundSphere(multipleTextureMaterial);
+                worldPlane = initWorldPlane(multipleTextureMaterial);
 
                 environment.add(backgroundSphere);
                 environment.add(worldPlane);
                 environment.visible = false;
 
-                initBuildings(textureMaterial);
-
-                // Render to texture
-                tScene = new THREE.Scene();
-                tPlane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2), null);
-                tCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10);
-
-                tPlane.frustumCulled = false;
-                tPlane.material = sceneMaterial;
-                tScene.add(tPlane);
+                initBuildings(multipleTextureMaterial);
 
                 // Available collections
                 collections = {
@@ -137,32 +122,29 @@
                         scene.add(environment);
                         globeRendering = false;
                         params.collection = 'collections/maurepas/';
-                        loadJSON(textureMaterial, server + params.collection);
-                    },
-                    Frejus: function() {
-                        clean();
-                        scene.add(environment);
-                        globeRendering = false;
-                        backgroundSphere.visible = false;
-                        params.collection = 'collections/frejus/';
-                        loadJSON(textureMaterial, server + params.collection);
+                        loadJSON(multipleTextureMaterial, server + params.collection);
                     },
                     Viabon: function() {
                         clean();
                         view.scene.add(environment);
                         globeRendering = true;
                         backgroundSphere.visible = false;
-                        textureMaterial.distortion.method = 2;
-                        gui.updateFromRendering(textureMaterial.distortion.method);
                         params.collection = 'collections/viabon/';
-                        loadJSONGlobe(textureMaterial, server + params.collection);
+                        loadJSONGlobe(multipleTextureMaterial, server + params.collection);
                     },
-                    SaintMartin: function() {
+                    Niepce: function(){
                         clean();
-                        scene.add(environment);
-                        globeRendering = false;
-                        params.collection = 'collections/saint_martin/';
-                        loadJSON(textureMaterial, server + params.collection);
+                        view.scene.add(environment);
+                        globeRendering = true;
+                        params.collection = 'collections/niepce/';
+                        loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'niepce-full.json');
+                    },
+                    Nanterre: function(){
+                        clean();
+                        view.scene.add(environment);
+                        globeRendering = true;
+                        params.collection = 'collections/ign_nanterre/';
+                        loadJSONGlobe(multipleTextureMaterial, server + params.collection);
                     }
                 };
 
@@ -174,21 +156,11 @@
                     var g = view.mainLoop.gfxEngine;
                     var r = g.renderer;
 
-                    if(textureMaterial.distortion.method == 2) target = g.fullSizeRenderTarget;
-                    else target = null;
-
-                    r.setRenderTarget(target);
+                    r.setRenderTarget(null);
                     r.clear();
 
                     if(globeRendering) r.render(view.scene, view.camera.camera3D);
                     else r.render(scene, viewCamera);
-
-                    if(textureMaterial.distortion.method == 2) {
-                        tPlane.material.uniforms.tDiffuse.value = g.fullSizeRenderTarget.texture;
-                        r.setRenderTarget(null);
-                        r.clear();
-                        r.render(tScene, tCamera);
-                    }
                 }
 
                 /* Clean --------------------------------------------- */
@@ -220,22 +192,11 @@
                 var viewGUI = gui.addFolder('View Camera'); // View
                 viewGUI.visible = viewGUI.add(cameras, 'visible');
                 viewGUI.zoom = viewGUI.add(viewCamera, 'zoom', 0, 2).onChange(updateViewCameraFromGUI);
-                viewGUI.distort = viewGUI.add(textureMaterial.distortion, 'view').name('distort');
-                viewGUI.extrapol = viewGUI.add(textureMaterial.extrapolation, 'view').name('extrapolate');
 
                 // Texture Camera
-                function updateRmaxFromGUI(value) {
-                    params.distortion.rmax = value;
-                    textureMaterial.uvDistortion.R.w = value*value*textureMaterial.distortion.r2img;
-                    textureMaterial.setHomography(textureCamera);
-                    view.notifyChange(true);
-                };
-
                 var textureGUI = gui.addFolder('Historical Camera');
-                textureGUI.opacity = textureGUI.add(textureMaterial, 'opacity', 0, 1);
-                textureGUI.distort = textureGUI.add(textureMaterial.distortion, 'texture').name('distort');
-                textureGUI.extrapol = textureGUI.add(textureMaterial.extrapolation, 'texture').name('extrapolate');
-                textureGUI.add(params.distortion, 'rmax', 0, 1).name('rmax ratio').onChange(updateRmaxFromGUI);
+                textureGUI.opacity = textureGUI.add(multipleTextureMaterial, 'opacity', 0, 1);
+                textureGUI.number = textureGUI.add(multipleTextureMaterial, 'orientedImageCount', 0, 1);
 
                 // Background 
                 function updateElevationFromGUI(value) {
@@ -244,32 +205,19 @@
                     else updateEnvironment();
                 }
                 var backgroundGUI = gui.addFolder('Background');
-                backgroundGUI.wireframe = backgroundGUI.add(textureMaterial, 'wireframe');
+                backgroundGUI.wireframe = backgroundGUI.add(multipleTextureMaterial, 'wireframe');
                 backgroundGUI.sphere = backgroundGUI.add(backgroundSphere, 'visible').name('sphere visible');
                 backgroundGUI.plane = backgroundGUI.add(worldPlane, 'visible').name('plane visible');
                 backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -20, 20)
                     .name('plane elevation').onChange(updateElevationFromGUI);
 
                 // Debug
-                function radialDistortionWarn() {
-                    if(textureMaterial.distortion.type == 2 && textureMaterial.distortion.method == 2)
-                        console.warn('Double pass rendering only supports the radial part of the distortion model');
-
-                    if(globeRendering && textureMaterial.distortion.method == 1)
-                        console.warn('Itowns only supports double pass rendering');
-                }
-
                 var debugGUI = gui.addFolder('Debug');
-                debugGUI.borderSharpness = debugGUI.add(textureMaterial.debug, 'borderSharpness', 2, 1000).name("border sharpness");
-                debugGUI.diffuseColorGrey = debugGUI.add(textureMaterial.debug, 'diffuseColorGrey');
-                debugGUI.debugOpacity = debugGUI.add(textureMaterial.debug, 'debugOpacity', 0., 1.);
-                debugGUI.rendering = debugGUI.add(textureMaterial.distortion, 'method', {single: 1, double: 2})
-                    .name('rendering').onChange(radialDistortionWarn);
-                debugGUI.distortion = debugGUI.add(textureMaterial.distortion, 'type', {radial: 1, complete: 2})
-                    .name('distortion mode').onChange(radialDistortionWarn);
+                debugGUI.borderSharpness = debugGUI.add(multipleTextureMaterial.debug, 'borderSharpness', 2, 1000).name("border sharpness");
+                debugGUI.diffuseColorGrey = debugGUI.add(multipleTextureMaterial.debug, 'diffuseColorGrey');
 
                 // Update controls functions
-                gui.updateFromCameras = function updateFromCameras(viewCamera, textureCamera, environment, elevation) {
+                gui.updateFromCameras = function updateFromCameras(viewCamera, textureCamera, cameras, environment, elevation) {
                     viewGUI.zoom.setValue(viewCamera.zoom);
                     backgroundGUI.sphere.setValue(environment.children[0].visible);
                     backgroundGUI.plane.setValue(environment.children[1].visible);
@@ -279,10 +227,15 @@
                         if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
                         textureGUI.name = 'Hist: ' + name;
                     }     
-                }
-
-                gui.updateFromRendering = function updateFromRendering(rendering) {
-                    debugGUI.rendering.setValue(rendering);
+                    if (multipleTextureMaterial.defines.MAX_TEXTURE > cameras.children.length) {
+                        if(cameras.children.length > 1)
+                            textureGUI.number.max(cameras.children.length);
+                        else
+                            textureGUI.number.max(1);
+                    } else {
+                        textureGUI.number.max(multipleTextureMaterial.defines.MAX_TEXTURE);
+                    }
+                    textureGUI.number.setValue(Math.round(multipleTextureMaterial.orientedImageCount));
                 }
                 return gui;
             }
@@ -291,10 +244,9 @@
                 requestAnimationFrame(animate);
                 
                 interpolateCameraGlobe(timestamp);
-                updateMaterial(textureMaterial);
-                textureMaterial.setUniforms(sceneMaterial.uniforms);
-                gui.updateFromCameras(viewCamera, textureCamera, environment, params.environment.elevation);
-                textureMaterial.transparent = true;
+                multipleTextureMaterial.setCamera(textureCamera, textures);
+                gui.updateFromCameras(viewCamera, textureCamera, cameras, environment, params.environment.elevation);
+                multipleTextureMaterial.transparent = true;
                 if(!globeRendering) view.notifyChange(true);
             }
         </script>
