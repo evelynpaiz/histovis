@@ -405,7 +405,7 @@ function handleBasicThumbnail(camera) {
         var container = parent.document.getElementById('rowSlider');
         var div = parent.document.createElement('div');
         div.setAttribute('class', 'w3-col w3-center');
-        div.setAttribute('style', 'width:16%;flex-shrink:0;');
+        div.setAttribute('style', 'width:150px;flex-shrink:0;');
 
         var img = parent.document.createElement('img');
         img.src = server + params.collection + images[camera.name];
@@ -431,28 +431,25 @@ function handleClusterThumbnail(camera) {
         var arr = ["leftCluster", "rightCluster", "bottomCluster", "topCluster"]; 
         var i = Math.floor(Math.random() * arr.length);
         var container = parent.document.getElementById(arr[i]); 
-        var div = parent.document.createElement('div');
-        if(i > 1) {
+        if(container) {
+            var div = parent.document.createElement('div');
             div.setAttribute('class', 'w3-col w3-center');
-            div.setAttribute('style', 'width:16%;flex-shrink:0;');
-        }else {
-            div.setAttribute('class', 'w3-row w3-center');
-            div.setAttribute('style', 'flex-shrink:0;');
+            div.setAttribute('style', 'width:150px;flex-shrink:0;');
+
+            var img = parent.document.createElement('img');
+            img.src = server + params.collection + images[camera.name];
+            img.setAttribute('id', camera.name);
+            img.setAttribute('title', 'image: ' + camera.name);
+            img.setAttribute('class', 'w3-opacity w3-hover-opacity-off w3-image w3-border w3-border-black w3-round w3-hover-border-blue');
+            img.setAttribute('style', 'height:100px;cursor:pointer;');
+            img.onclick = function () {
+                setCamera(camera);
+                setThumbnail(camera.name);
+            };
+
+            div.appendChild(img);
+            container.appendChild(div);
         }
-
-        var img = parent.document.createElement('img');
-        img.src = server + params.collection + images[camera.name];
-        img.setAttribute('id', camera.name);
-        img.setAttribute('title', 'image: ' + camera.name);
-        img.setAttribute('class', 'w3-opacity w3-hover-opacity-off w3-image w3-border w3-border-black w3-round w3-hover-border-blue');
-        img.setAttribute('style', 'height:100px;cursor:pointer;');
-        img.onclick = function () {
-            setCamera(camera);
-            setThumbnail(camera.name);
-        };
-
-        div.appendChild(img);
-        container.appendChild(div);
     }
 }
 
@@ -627,7 +624,6 @@ function basicClean() {
 
 function emptyThumbnail(div){
     var container = parent.document.getElementById(div);
-
-    container.innerHTML = '';
+    if(container) container.innerHTML = '';
 }
 

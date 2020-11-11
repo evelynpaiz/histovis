@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>HistoVis - Multiple Image Visualization</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link rel="stylesheet" href="style/w3.css">
+        <link rel="stylesheet" href="style/style.css">
+        <link rel="stylesheet" href="style/menu.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+        <link rel="shortcut icon" href="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.ico">
+    </head>
+    <body class="w3-light-gray">
+        <!-- Sidebar/menu -->
+        <nav id="mySidebar" class="w3-sidebar w3-light-gray w3-card-2 w3-animate-left">
+            <div class="w3-bar w3-dark-grey">
+                <span class="w3-bar-item w3-padding-16">
+                    Content
+                </span>
+                <button onclick="closeMenu()" class="w3-bar-item w3-button w3-right w3-padding-16" title="close sidebar">×</button>
+            </div>
+
+            <div class="w3-bar-block w3-light-gray">
+                <a class="w3-bar-item w3-button w3-hover-pink" href="index.html">Home</a>
+                <div>
+                    <button class="w3-button w3-block w3-left-align w3-hover-green w3-green" onclick="myCollectionsFunc()">
+                        Image Collections <i class="fa fa-caret-down"></i>
+                    </button>
+                    <div id="myCollections" class="w3-small w3-hide w3-show"></div>
+                </div>
+
+                <div id="myMenu" class="w3-dropdown-hover">
+                    <a class="w3-button w3-hover-green" href="javascript:void(0)">Menu Visualization <i class="fa fa-caret-down"></i></a>
+                    <div class="w3-dropdown-content w3-bar-block w3-small w3-card w3-light-gray">
+                        <a href="javascript:closeImageVis();" class="w3-bar-item w3-button">None</a>
+                        <a href="javascript:openSlider();" class="w3-bar-item w3-button">Slider</a>
+                        <a href="javascript:openCluster();" class="w3-bar-item w3-button">Clusters</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Open Menu -->
+        <span id="openNav" title="open sidebar" class="w3-button w3-transparent w3-display-topleft w3-large w3-hover" onclick="openMenu()">☰</span>
+
+        <!-- !Page Content -->
+        <iframe id="myRenderer" class = "w3-card w3-light-gray w3-margin-bottom" src="multiple-renderer.html">
+        </iframe>
+
+        <!-- Image slider -->
+        <div id="mySlider" class="w3-container w3-padding w3-light-gray w3-card w3-animate-bottom">  
+            <div id="rowSlider" class="w3-row-padding"></div>
+        </div>
+
+        <!-- Cluster image menu -->
+        <div id="myCluster" class="w3-display-container w3-light-gray w3-card">
+            <div id="leftCluster" class="w3-row-padding w3-display-left"></div>
+            <div id="rightCluster" class="w3-row-padding w3-display-right"></div>
+            <div id="topCluster" class="w3-row-padding w3-display-topmiddle" style="top:10px;"></div>
+            <div id="bottomCluster" class="w3-row-padding w3-display-bottommiddle"></div>
+        </div>
+
+        <script src="js/web/menu.js"></script>
+    </body>
+</html>
