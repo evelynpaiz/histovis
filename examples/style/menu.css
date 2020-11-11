@@ -56,14 +56,16 @@
 }
 
 #leftCluster, #rightCluster {
-    width:160px;
-    height:calc(100% - 230px);
+    display: flex;
+    flex-direction: column;
+    width:150px;
+    height:calc(100% - 212px);
     overflow:hidden;
 }
 
 #topCluster, #bottomCluster {
     display: flex;
-    width:calc(100% - 230px);
+    width:calc(100% - 290px);
     height:110px;
     overflow:hidden;
 }

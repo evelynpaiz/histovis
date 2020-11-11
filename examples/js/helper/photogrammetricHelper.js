@@ -409,13 +409,12 @@ function handleBasicThumbnail(camera) {
 
         var img = parent.document.createElement('img');
         img.src = server + params.collection + images[camera.name];
-        img.setAttribute('id', camera.name);
+        img.setAttribute('id', camera.name+"-slider");
         img.setAttribute('title', 'image: ' + camera.name);
         img.setAttribute('class', 'w3-opacity w3-hover-opacity-off w3-image w3-border w3-border-black w3-round w3-hover-border-blue');
         img.setAttribute('style', 'height:100px;cursor:pointer;');
         img.onclick = function () {
             setCamera(camera);
-            setThumbnail(camera.name);
         };
         div.appendChild(img);
         container.appendChild(div);
@@ -433,18 +432,17 @@ function handleClusterThumbnail(camera) {
         var container = parent.document.getElementById(arr[i]); 
         if(container) {
             var div = parent.document.createElement('div');
-            div.setAttribute('class', 'w3-col w3-center');
+            div.setAttribute('class', 'w3-padding-small w3-col w3-center');
             div.setAttribute('style', 'width:150px;flex-shrink:0;');
 
             var img = parent.document.createElement('img');
             img.src = server + params.collection + images[camera.name];
-            img.setAttribute('id', camera.name);
+            img.setAttribute('id', camera.name+"-cluster");
             img.setAttribute('title', 'image: ' + camera.name);
             img.setAttribute('class', 'w3-opacity w3-hover-opacity-off w3-image w3-border w3-border-black w3-round w3-hover-border-blue');
             img.setAttribute('style', 'height:100px;cursor:pointer;');
             img.onclick = function () {
                 setCamera(camera);
-                setThumbnail(camera.name);
             };
 
             div.appendChild(img);
@@ -495,7 +493,10 @@ function setTexture(camera) {
 function setCamera(camera) {
     setView(camera);
     setTexture(camera);
-    setThumbnail(camera.name);
+    if(window.location !== window.parent.location) {
+        setThumbnail(camera.name, "-slider");
+        setThumbnail(camera.name, "-cluster");
+    }
 }
 
 function setMaterial(material, camera) {
@@ -509,14 +510,14 @@ function setRadius(material, camera){
     material.uvDistortion.R.w = params.distortion.rmax*params.distortion.rmax*material.distortion.r2img;
 }
 
-function setThumbnail(camera) {
+function setThumbnail(camera, type) {
     if(window.location !== window.parent.location) {
-        old = parent.document.getElementsByClassName("selected");
+        old = parent.document.getElementsByClassName("selected"+type);
         for (i = 0; i < old.length; i++)
             old[i].className = "w3-opacity w3-hover-opacity-off w3-image w3-border w3-border-black w3-round w3-hover-border-blue";
         
-        img = parent.document.getElementById(camera);
-        img.className = "selected w3-image w3-border w3-border-blue w3-round";
+        img = parent.document.getElementById(camera+type);
+        img.className = "selected" + type + " w3-image w3-border w3-border-blue w3-round";
     }
 }
 

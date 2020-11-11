@@ -113,15 +113,15 @@ function openCluster() {
     vis.type = 2;
 
     if(vis.sidebar) {
-        frame.style.marginLeft = '370px';
-        frame.style.width = 'calc(100% - 540px)';
+        frame.style.marginLeft = '354px';
+        frame.style.width = 'calc(100% - 508px)';
     } else {
         frame.style.marginLeft = '170px';
         frame.style.width = 'calc(100% - 340px)';
     }
 
-    frame.style.top = '125px';
-    frame.style.height = 'calc(100% - 250px)';
+    frame.style.top = '116px';
+    frame.style.height = 'calc(100% - 234px)';
 }
 
 function closeImageVis() {
