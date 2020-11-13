@@ -55,6 +55,12 @@
             var PhotogrammetricCamera = histovis.photogrammetricCamera.PhotogrammetricCamera;
         </script>
 
+        <script src="../dist/cluster.js"></script>
+        <script>
+            var Image = histovis.Image;
+            var Cluster = histovis.Cluster;
+        </script>
+
         <script src="js/helper/photogrammetricHelper.js"></script>
         <script src="js/helper/photogrammetricHelperGlobe.js"></script>
         <script>
@@ -89,7 +95,6 @@
                 cameras = new THREE.Group();
                 cameras.visible = false;
                 scene.add(viewCamera);
-                scene.add(cameras);
 
                 // Materials
                 basicMaterial = initBasicMaterial();
@@ -124,6 +129,7 @@
                     Sample: function(){
                         clean();
                         scene.add(environment);
+                        scene.add(cameras);
                         worldPlane.visible = false;
                         globeRendering = false;
                         var path = 'https://raw.githubusercontent.com/micmacIGN/Documentation/master/FilesSamples/';
@@ -135,6 +141,7 @@
                     Maurepas: function() {
                         clean();
                         scene.add(environment);
+                        scene.add(cameras);
                         globeRendering = false;
                         params.collection = 'collections/maurepas/';
                         loadJSON(textureMaterial, server + params.collection);
@@ -142,6 +149,7 @@
                     Frejus: function() {
                         clean();
                         scene.add(environment);
+                        scene.add(cameras);
                         globeRendering = false;
                         backgroundSphere.visible = false;
                         params.collection = 'collections/frejus/';
@@ -150,6 +158,7 @@
                     Viabon: function() {
                         clean();
                         view.scene.add(environment);
+                        view.scene.add(cameras);
                         globeRendering = true;
                         backgroundSphere.visible = false;
                         textureMaterial.distortion.method = 2;
@@ -160,6 +169,7 @@
                     SaintMartin: function() {
                         clean();
                         scene.add(environment);
+                        scene.add(cameras);
                         globeRendering = false;
                         params.collection = 'collections/saint_martin/';
                         loadJSON(textureMaterial, server + params.collection);

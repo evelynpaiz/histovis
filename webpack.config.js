@@ -2,10 +2,7 @@ const path = require('path');
 
 module.exports = {
     entry: {
-        "three": [path.resolve(__dirname, 'src/three.js')],
-        "photogrammetric-camera": [path.resolve(__dirname, 'src/photogrammetric-camera.js')],
-        "three-additional": [path.resolve(__dirname, 'src/three-additional.js')],
-        "itowns": [path.resolve(__dirname, 'src/itowns.js')]
+        "histovis": [path.resolve(__dirname, 'src/main.js')]
     },
     devtool: 'source-map',
     output: {
