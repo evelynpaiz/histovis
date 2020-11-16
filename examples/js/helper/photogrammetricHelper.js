@@ -500,7 +500,7 @@ function setThumbnail(camera, type) {
     if(window.location !== window.parent.location) {
         old = parent.document.getElementsByClassName("selected"+type);
         for (i = 0; i < old.length; i++)
-            old[i].className = "w3-opacity w3-hover-opacity-off w3-image w3-border w3-border-black w3-round w3-hover-border-blue";
+            old[i].className = "w3-image w3-border w3-border-black w3-round w3-hover-border-blue";
         
         img = parent.document.getElementById(camera+type);
         if(img) img.className = "selected" + type + " w3-image w3-border w3-border-blue w3-round";
@@ -595,7 +595,7 @@ function handleMultipleClusterThumbnail(cameras, keys, container, position) {
         box.setAttribute('class', 'w3-black w3-round w3-border w3-border-black');
         position < 2 ? box.setAttribute('style', 'display:flex;flex-direction:column;') : box.setAttribute('style', 'display:flex;height:100px;');
 
-        var img = clusterImageThumbnail(cameras[keys[0]], 'height:96px;', 'w3-border');
+        var img = clusterImageThumbnail(cameras[keys[0]].camera, 'height:96px;', 'w3-border');
         img.setAttribute('style', 'height:96px;max-width:130px;cursor:pointer;');
 
         var slider = parent.document.createElement('div');
@@ -608,8 +608,18 @@ function handleMultipleClusterThumbnail(cameras, keys, container, position) {
         slider.appendChild(number);
 
         keys.forEach(key => {
-            var img = clusterImageThumbnail(cameras[key], 'height:25px;', 'w3-border');
-            slider.appendChild(img);
+            var miniImg = clusterImageThumbnail(cameras[key].camera, 'height:25px;max-width:35px;', 'w3-border');
+            miniImg.onclick = function () {
+                var camera = cameras[key].camera;
+                setThumbnail(camera.name, "-cluster");
+                img.src = server + params.collection + images[camera.name];
+                img.setAttribute('id', camera.name+"-cluster");
+                img.setAttribute('title', 'image: ' + camera.name);
+                img.onclick = function () {
+                    setCamera(camera);
+                };
+            };
+            slider.appendChild(miniImg);
         });
 
         div.appendChild(box);
