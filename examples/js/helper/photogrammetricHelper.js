@@ -24,6 +24,7 @@ var params = {
     cameras: {size: 10000},
     environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
     distortion: {rmax: 1.},
+    clustering: {apply: false, images: 5, clusters: 3},
     interpolation: {duration: 3.}
 };
 
@@ -365,7 +366,7 @@ function handleImage(name) {
     return function(texture) {
         if (!texture) return;
         texture.name = name;
-        textures[texture.name] = texture ;
+        textures[texture.name] = texture;
         return texture;
     };
 }
@@ -403,31 +404,6 @@ function handleMesh(name, material){
     }
 }
 
-function handleBasicThumbnail(camera) {
-    if(params.collection && window.location !== window.parent.location) {
-        var container = parent.document.getElementById('rowSlider');
-        var div = parent.document.createElement('div');
-        div.setAttribute('class', 'w3-col w3-center');
-        div.setAttribute('style', 'width:150px;flex-shrink:0;');
-
-        var img = parent.document.createElement('img');
-        img.src = server + params.collection + images[camera.name];
-        img.setAttribute('id', camera.name+"-slider");
-        img.setAttribute('title', 'image: ' + camera.name);
-        img.setAttribute('class', 'w3-opacity w3-hover-opacity-off w3-image w3-border w3-border-black w3-round w3-hover-border-blue');
-        img.setAttribute('style', 'height:100px;cursor:pointer;');
-        img.onclick = function () {
-            setCamera(camera);
-        };
-        div.appendChild(img);
-        container.appendChild(div);
-
-        [].map.call(container.children, Object)
-        .sort((a, b) => a.children[0].id.localeCompare(b.children[0].id))
-        .forEach(elem => container.appendChild(elem));
-    }
-}
-
 /* Gets ---------------------------------------------- */
 function getCamera(camera, delta = 0){
     const array = cameras.children;
@@ -440,15 +416,6 @@ function getMaxTextureUnitsCount(renderer) {
     return gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
 }
 
-function get2DPosition(position, camera, width, height){
-    var p = position.clone();
-    var vector = p.project(camera);
-
-    vector.x = (vector.x + 1) / 2 * width;
-    vector.y = -(vector.y - 1) / 2 * height;
-
-    return new THREE.Vector2().copy(vector);
-}
 /* Sets ---------------------------------------------- */
 function setView(camera) {
     if (!camera) return;
@@ -496,17 +463,6 @@ function setRadius(material, camera){
     material.uvDistortion.R.w = params.distortion.rmax*params.distortion.rmax*material.distortion.r2img;
 }
 
-function setThumbnail(camera, type) {
-    if(window.location !== window.parent.location) {
-        old = parent.document.getElementsByClassName("selected"+type);
-        for (i = 0; i < old.length; i++)
-            old[i].className = "w3-image w3-border w3-border-black w3-round w3-hover-border-blue";
-        
-        img = parent.document.getElementById(camera+type);
-        if(img) img.className = "selected" + type + " w3-image w3-border w3-border-blue w3-round";
-    }
-}
-
 /* Update -------------------------------------------- */
 function updateEnvironment() {
     backgroundSphere.scale.set(params.environment.radius, params.environment.radius, params.environment.radius);
@@ -542,10 +498,39 @@ function updateControls() {
     controls.saveState();
 }
 
+function normalize(val, max, min) {
+    return Math.max(0, Math.min(1, (val - min) / (max - min)));
+}
+
 function updateCamera(camera) {
     camera.updateMatrix();
     camera.updateMatrixWorld();
     camera.updateProjectionMatrix(); 
+
+    // Compute distances from view camera
+    var images = cameras.children.map(c => {
+        var image = new Image(c); 
+        image.computeDistances(camera);
+        return image;
+    });
+
+    // Normalize distances
+    var maxDistanceViewpoint = Math.max.apply(Math, images.map(o => o.distance.viewpoint));
+    images.forEach(i => {i.weight.viewpoint = normalize(i.distance.viewpoint, 0, maxDistanceViewpoint)});
+
+    // Rank weights in descending order
+    images.sort((a,b) => (a.weight.viewpoint < b.weight.viewpoint) ? 1 : ((b.weight.viewpoint < a.weight.viewpoint) ? -1 : 0));
+
+    // Filter the number of images
+    images = images.filter((i, index) => (index < params.clustering.images));
+
+    // Cluster objects
+    clusters.hcluster(images);
+
+    // Render thumbnails
+    updateClusterThumbnail(clusters.getClustersByNumber(params.clustering.clusters));
+
+    /*
 
     // Filter objects
     frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
@@ -558,125 +543,7 @@ function updateCamera(camera) {
         return image;
     });
 
-    // Cluster objects
-    clusters.clusterObjects(objects);
-
-    // Render thumbnails
-    updateClusterThumbnail(clusters);
-}
-
-function updateClusterThumbnail(clusters) {
-    if(params.collection && window.location !== window.parent.location) {
-        // Clean (TODO: fluid interaction)
-        var arr = ["leftCluster", "rightCluster", "bottomCluster", "topCluster"]; 
-        arr.forEach(emptyThumbnail);
-        // Create thumbnails for each cluster
-        clusters.clusters.forEach(cluster => {
-            // Random choose place (TODO: depend on the position of the cluster)
-            var i = Math.floor(Math.random() * arr.length);
-            var container = parent.document.getElementById(arr[i]); 
-
-            var keys = Object.keys(cluster);
-            if(keys.length == 1) handleOneClusterThumbnail(cluster[keys[0]].camera, container);
-            else if(keys.length == 2) handleTwoClusterThumbnail(cluster[keys[0]].camera, cluster[keys[1]].camera, container, i);
-            else handleMultipleClusterThumbnail(cluster, keys, container, i);
-        });
-    }
-}
-
-function handleMultipleClusterThumbnail(cameras, keys, container, position) {
-    if(params.collection && window.location !== window.parent.location) {
-        var width = position < 2 ? 'width:150px;' : 'width:185px;';
-        var div = parent.document.createElement('div');
-        div.setAttribute('class', 'w3-padding-small w3-col w3-center');
-        div.setAttribute('style', width + 'flex-shrink:0;');
-
-        var box = parent.document.createElement('div');
-        box.setAttribute('class', 'w3-black w3-round w3-border w3-border-black');
-        position < 2 ? box.setAttribute('style', 'display:flex;flex-direction:column;') : box.setAttribute('style', 'display:flex;height:100px;');
-
-        var img = clusterImageThumbnail(cameras[keys[0]].camera, 'height:96px;', 'w3-border');
-        img.setAttribute('style', 'height:96px;max-width:130px;cursor:pointer;');
-
-        var slider = parent.document.createElement('div');
-        slider.setAttribute('class', 'w3-col w3-round');
-        position < 2 ? slider.setAttribute('style', 'overflow-x:auto;display:flex;') : slider.setAttribute('style', 'height:96px;overflow-y:auto;display:flex;flex-direction:column;');
-
-        var number = parent.document.createElement('div');
-        number.setAttribute('class', 'w3-small w3-round w3-padding-small w3-black');
-        number.innerHTML += keys.length;
-        slider.appendChild(number);
-
-        keys.forEach(key => {
-            var miniImg = clusterImageThumbnail(cameras[key].camera, 'height:25px;max-width:35px;', 'w3-border');
-            miniImg.onclick = function () {
-                var camera = cameras[key].camera;
-                setThumbnail(camera.name, "-cluster");
-                img.src = server + params.collection + images[camera.name];
-                img.setAttribute('id', camera.name+"-cluster");
-                img.setAttribute('title', 'image: ' + camera.name);
-                img.onclick = function () {
-                    setCamera(camera);
-                };
-            };
-            slider.appendChild(miniImg);
-        });
-
-        div.appendChild(box);
-        box.appendChild(img);
-        box.appendChild(slider);
-        container.appendChild(div);
-
-    }
-}
-
-function handleTwoClusterThumbnail(camera1, camera2, container, position) {
-    if(params.collection && window.location !== window.parent.location) {
-        var width = position < 2 ? 'width:150px;' : 'width:80px;';
-        var div = parent.document.createElement('div');
-        div.setAttribute('class', 'w3-padding-small w3-col w3-center');
-        div.setAttribute('style', width + 'flex-shrink:0;');
-
-        var display = position < 2 ? '' : 'flex-direction:column;';
-        var box = parent.document.createElement('div');
-        box.setAttribute('class', 'w3-black w3-round w3-border w3-border-black');
-        box.setAttribute('style', 'display:flex;' + display);
-
-        var height = position < 2 ? 'height:44.8px;' : 'height:47.5px;';
-        var img1 = clusterImageThumbnail(camera1, height, 'w3-border');
-        var img2 = clusterImageThumbnail(camera2, height, 'w3-border');
-
-        div.appendChild(box);
-        box.appendChild(img1);
-        box.appendChild(img2);
-        container.appendChild(div);
-    }
-}
-
-function handleOneClusterThumbnail(camera, container) {
-    if(params.collection && window.location !== window.parent.location) {
-        var div = parent.document.createElement('div');
-        div.setAttribute('class', 'w3-padding-small w3-col w3-center');
-        div.setAttribute('style', 'width:150px;flex-shrink:0;');
-
-        var img = clusterImageThumbnail(camera, 'height:100px;', 'w3-border-large');
-
-        div.appendChild(img);
-        container.appendChild(div);
-    }
-};
-
-function clusterImageThumbnail(camera, height, border) {
-    var img = parent.document.createElement('img');
-    img.src = server + params.collection + images[camera.name];
-    img.setAttribute('id', camera.name+"-cluster");
-    img.setAttribute('title', 'image: ' + camera.name);
-    img.setAttribute('class', border + ' w3-image w3-border-black w3-round w3-hover-border-blue');
-    img.setAttribute('style', height + 'cursor:pointer;');
-    img.onclick = function () {
-        setCamera(camera);
-    };
-    return img;
+    */
 }
 
 /* Show ---------------------------------------------- */
@@ -702,7 +569,7 @@ function interpolateCamera(timestamp) {
             nextCamera.timestamp = undefined;
             
             if(controls) controls.saveState();
-            updateCamera(viewCamera);
+            if(params.clustering.apply) updateCamera(viewCamera);
             showMaterials(true);
         }
         viewCamera.updateProjectionMatrix(); 
@@ -711,11 +578,12 @@ function interpolateCamera(timestamp) {
 
 /* Clean --------------------------------------------- */
 function basicClean() {
-    params = {
+    var params = {
         collection: undefined,
         cameras: {size: 10000},
         environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
         distortion: {rmax: 1.},
+        clustering: {apply: false, images: 20},
         interpolation: {duration: 3.}
     };
 
@@ -747,9 +615,3 @@ function basicClean() {
     Object.keys(images).forEach(key => delete images[key]);
     while(cameras.children.length) cameras.remove(cameras.children[0]);
 }
-
-function emptyThumbnail(div){
-    var container = parent.document.getElementById(div);
-    if(container) container.innerHTML = '';
-}
-

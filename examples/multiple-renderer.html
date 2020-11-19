@@ -60,6 +60,7 @@
             var Cluster = histovis.Cluster;
         </script>
 
+        <script src="js/web/thumbnails.js"></script>
         <script src="js/helper/photogrammetricHelper.js"></script>
         <script src="js/helper/photogrammetricHelperGlobe.js"></script>
         <script>
@@ -109,10 +110,14 @@
 
                 initBuildings(multipleTextureMaterial);
 
+                // Activate clustering
+                params.clustering.apply = true;
+
                 // Available collections
                 collections = {
                     Sample: function(){
                         clean();
+                        params.clustering.apply = true;
                         scene.add(environment);
                         scene.add(cameras);
                         worldPlane.visible = false;
@@ -125,6 +130,7 @@
                     },
                     Maurepas: function() {
                         clean();
+                        params.clustering.apply = true;
                         scene.add(environment);
                         scene.add(cameras);
                         globeRendering = false;
@@ -133,6 +139,7 @@
                     },
                     Viabon: function() {
                         clean();
+                        params.clustering.apply = true;
                         view.scene.add(environment);
                         view.scene.add(cameras);
                         globeRendering = true;
@@ -142,6 +149,7 @@
                     },
                     Niepce: function(){
                         clean();
+                        params.clustering.apply = true;
                         view.scene.add(environment);
                         view.scene.add(cameras);
                         globeRendering = true;
@@ -150,6 +158,7 @@
                     },
                     Nanterre: function(){
                         clean();
+                        params.clustering.apply = true;
                         view.scene.add(environment);
                         view.scene.add(cameras);
                         globeRendering = true;
@@ -208,6 +217,12 @@
                 textureGUI.opacity = textureGUI.add(multipleTextureMaterial, 'opacity', 0, 1);
                 textureGUI.number = textureGUI.add(multipleTextureMaterial, 'orientedImageCount', 0, 1);
 
+                // Clustering
+                if(params.clustering.apply) {
+                    var clusteringGUI = gui.addFolder('Clustering');
+                    clusteringGUI.images = clusteringGUI.add(params.clustering, 'images', 0, 20);
+                }
+
                 // Background 
                 function updateElevationFromGUI(value) {
                     params.environment.elevation = value;
@@ -227,7 +242,7 @@
                 debugGUI.diffuseColorGrey = debugGUI.add(multipleTextureMaterial.debug, 'diffuseColorGrey');
 
                 // Update controls functions
-                gui.updateFromCameras = function updateFromCameras(viewCamera, textureCamera, cameras, environment, elevation) {
+                gui.updateGUI = function updateGUI(viewCamera, textureCamera, cameras, environment, elevation) {
                     viewGUI.zoom.setValue(viewCamera.zoom);
                     backgroundGUI.sphere.setValue(environment.children[0].visible);
                     backgroundGUI.plane.setValue(environment.children[1].visible);
@@ -246,6 +261,9 @@
                         textureGUI.number.max(multipleTextureMaterial.defines.MAX_TEXTURE);
                     }
                     textureGUI.number.setValue(Math.round(multipleTextureMaterial.orientedImageCount));
+                    if(clusteringGUI) {
+                        clusteringGUI.images.max(cameras.children.length);
+                    }
                 }
                 return gui;
             }
@@ -255,7 +273,7 @@
                 
                 interpolateCameraGlobe(timestamp);
                 multipleTextureMaterial.setCamera(textureCamera, textures);
-                gui.updateFromCameras(viewCamera, textureCamera, cameras, environment, params.environment.elevation);
+                gui.updateGUI(viewCamera, textureCamera, cameras, environment, params.environment.elevation);
                 multipleTextureMaterial.transparent = true;
                 if(!globeRendering) view.notifyChange(true);
             }
