@@ -29,9 +29,9 @@ var params = {
 };
 
 var clock = new THREE.Clock();
-var frustum = new THREE.Frustum();
 
-var clusters = new Cluster();
+var frustum = new THREE.Frustum();
+var clusters = new Clustering();
 
 /* ----------------------- Functions --------------------- */
 
@@ -502,15 +502,16 @@ function normalize(val, max, min) {
     return Math.max(0, Math.min(1, (val - min) / (max - min)));
 }
 
-function updateCamera(camera) {
+function updateClustering(camera) {
+    // Update view camera frustum
     camera.updateMatrix();
     camera.updateMatrixWorld();
-    camera.updateProjectionMatrix(); 
+    frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
 
     // Compute distances from view camera
     var images = cameras.children.map(c => {
         var image = new Image(c); 
-        image.computeDistances(camera);
+        image.computeDistances(camera, frustum);
         return image;
     });
 
@@ -531,7 +532,6 @@ function updateCamera(camera) {
     updateClusterThumbnail(clusters.getClustersByNumber(params.clustering.clusters));
 
     /*
-
     // Filter objects
     frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     var canvas = view.mainLoop.gfxEngine.renderer.getContext().canvas;
@@ -542,7 +542,6 @@ function updateCamera(camera) {
         image.set2DPosition(camera, canvas.width, canvas.height);
         return image;
     });
-
     */
 }
 
@@ -569,7 +568,7 @@ function interpolateCamera(timestamp) {
             nextCamera.timestamp = undefined;
             
             if(controls) controls.saveState();
-            if(params.clustering.apply) updateCamera(viewCamera);
+            if(params.clustering.apply) updateClustering(viewCamera);
             showMaterials(true);
         }
         viewCamera.updateProjectionMatrix(); 
@@ -583,7 +582,7 @@ function basicClean() {
         cameras: {size: 10000},
         environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
         distortion: {rmax: 1.},
-        clustering: {apply: false, images: 20},
+        clustering: {apply: false, images: 5, clusters: 3},
         interpolation: {duration: 3.}
     };
 

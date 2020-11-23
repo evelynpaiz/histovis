@@ -127,6 +127,7 @@ function setThumbnail(camera, type) {
 /* Update -------------------------------------------- */
 function updateClusterThumbnail(clusters) {
     if(params.collection && window.location !== window.parent.location) {
+
         // Clean (TODO: fluid interaction)
         var arr = ["leftCluster", "rightCluster", "bottomCluster", "topCluster"]; 
         arr.forEach(emptyThumbnail);
@@ -137,9 +138,9 @@ function updateClusterThumbnail(clusters) {
             var i = Math.floor(Math.random() * arr.length);
             var container = parent.document.getElementById(arr[i]); 
 
-            if(!Array.isArray(cluster)) handleOneClusterThumbnail(cluster.camera, container);
-            else if(cluster.length == 2) handleTwoClusterThumbnail(cluster[0].camera, cluster[1].camera, container, i);
-            else handleMultipleClusterThumbnail(cluster, container, i);
+            if(!Array.isArray(cluster.object)) handleOneClusterThumbnail(cluster.object.camera, container);
+            else if(cluster.object.length == 2) handleTwoClusterThumbnail(cluster.object[0].camera, cluster.object[1].camera, container, i);
+            else handleMultipleClusterThumbnail(cluster.object, container, i);
         });
     }
 }

@@ -6,6 +6,7 @@ var cluster = document.getElementById("myCluster");
 
 frame.addEventListener("load", function() {
     var collections = frame.contentWindow.collections;
+    document.getElementById('myCollections').innerHTML = '';
     for(const key in collections){
         var value = collections[key];
         createCollectionElement(key, value);

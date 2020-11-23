@@ -57,7 +57,7 @@
         <script src="../dist/cluster.js"></script>
         <script>
             var Image = histovis.Image;
-            var Cluster = histovis.Cluster;
+            var Clustering = histovis.Clustering;
         </script>
 
         <script src="js/web/thumbnails.js"></script>
@@ -219,8 +219,23 @@
 
                 // Clustering
                 if(params.clustering.apply) {
+                    function updateClusterImgFromGUI(value) {
+                        if(value != clusters.images) {
+                            params.clustering.images = Math.floor(value);
+                            updateClustering(viewCamera);
+                        }
+                    };
+
+                    function updateClusterThumbFromGUI(value) {
+                        if(value != clusters.number) {
+                            params.clustering.clusters = Math.floor(value);
+                            updateClusterThumbnail(clusters.getClustersByNumber(Math.floor(value)));
+                        }
+                    };
+
                     var clusteringGUI = gui.addFolder('Clustering');
-                    clusteringGUI.images = clusteringGUI.add(params.clustering, 'images', 0, 20);
+                    clusteringGUI.images = clusteringGUI.add(params.clustering, 'images', 0, 1).onChange(updateClusterImgFromGUI);
+                    clusteringGUI.clusters = clusteringGUI.add(params.clustering, 'clusters', 0, 1).onChange(updateClusterThumbFromGUI);
                 }
 
                 // Background 
@@ -242,11 +257,11 @@
                 debugGUI.diffuseColorGrey = debugGUI.add(multipleTextureMaterial.debug, 'diffuseColorGrey');
 
                 // Update controls functions
-                gui.updateGUI = function updateGUI(viewCamera, textureCamera, cameras, environment, elevation) {
+                gui.updateGUI = function updateGUI() {
                     viewGUI.zoom.setValue(viewCamera.zoom);
                     backgroundGUI.sphere.setValue(environment.children[0].visible);
                     backgroundGUI.plane.setValue(environment.children[1].visible);
-                    backgroundGUI.elevation.setValue(elevation);
+                    backgroundGUI.elevation.setValue(params.environment.elevation);
                     var name = textureCamera.name;
                     if (name.length > 0) {
                         if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
@@ -260,9 +275,13 @@
                     } else {
                         textureGUI.number.max(multipleTextureMaterial.defines.MAX_TEXTURE);
                     }
-                    textureGUI.number.setValue(Math.round(multipleTextureMaterial.orientedImageCount));
+                    textureGUI.number.setValue(Math.floor(multipleTextureMaterial.orientedImageCount));
                     if(clusteringGUI) {
                         clusteringGUI.images.max(cameras.children.length);
+                        clusteringGUI.images.setValue(Math.floor(params.clustering.images));
+
+                        clusteringGUI.clusters.max(params.clustering.images);
+                        clusteringGUI.clusters.setValue(Math.floor(params.clustering.clusters));
                     }
                 }
                 return gui;
@@ -273,7 +292,7 @@
                 
                 interpolateCameraGlobe(timestamp);
                 multipleTextureMaterial.setCamera(textureCamera, textures);
-                gui.updateGUI(viewCamera, textureCamera, cameras, environment, params.environment.elevation);
+                gui.updateGUI();
                 multipleTextureMaterial.transparent = true;
                 if(!globeRendering) view.notifyChange(true);
             }

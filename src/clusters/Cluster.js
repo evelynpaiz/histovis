@@ -1,16 +1,23 @@
 // Ref: https://becominghuman.ai/hierarchical-clustering-in-javascript-brief-introduction-2f88e8601362
 
-function BiCluster(opt){
+function BiCluster(opt) {
     this.left = opt.left || null;
     this.right = opt.right || null;
     this.object = opt.object;
-    this.id = opt.id || 0;
+    this.level = opt.level || 0;
     this.weight = opt.weight || 0.0;
 }
 
-class Cluster {
+function Cluster(id) {
+    this.id = id || 0;
+    this.object = [];
+}
+
+class Clustering {
     constructor() {
         this.clusters = [];
+        this.images = 0;
+        this.number = 0;
     }
     
     merge(a, b) {
@@ -32,27 +39,50 @@ class Cluster {
     }
 
     searchTree(cluster, number) {
-        var result = [];
-        if(cluster.id >= 0) result = [cluster.object];
-        else if(Math.abs(cluster.id) >= number) return [cluster.object];
+        var result = new Cluster(cluster.level);
+        if(cluster.level == number) {
+            var node = new Cluster(cluster.level);
+            node.object = cluster.object;
+            result.object = [node];
+        }
+        else if(cluster.level < number) result.object = cluster.object;
         else {
-            if(cluster.left != null) result = result.concat(this.searchTree(cluster.left, number));
-            if(cluster.right != null) result = result.concat(this.searchTree(cluster.right, number));
+            if(cluster.left != null) {
+                var left = this.searchTree(cluster.left, number);
+                if(left.id < number) result.object = result.object.concat(left);
+                else result.object = result.object.concat(left.object);
+                
+            }
+            if(cluster.right != null) {
+                var right = this.searchTree(cluster.right, number);
+                if(right.id < number) result.object = result.object.concat(right);
+                else result.object = result.object.concat(right.object);
+            }
         }
         return result;
     }
 
     getClustersByNumber(number) {
-        return this.searchTree(this.clusters[0], number);
+        if(this.images > 0 && number > 0) {
+            this.number = number;
+            var total = number > this.images ? 0 : this.images - number;
+            return this.searchTree(this.clusters[0], total).object;
+        } 
+        else {
+            this.number = 0;
+            return new Array();
+        }
     }
 
     hcluster(objects) {
         this.clusters = [];
-        var currentclustid = -objects.length;
+        this.images = objects.length;
+
+        var currentclustlevel = 0;
 
         // Consider all data points as individual clusters
-        this.clusters = objects.map((object, index) => {
-            return new BiCluster({object: object, id: index, weight: object.weight.viewpoint})});
+        this.clusters = objects.map(object => {
+            return new BiCluster({object: object, level: 0, weight: object.weight.viewpoint})});
         
         // Loop until the lengt of the cluster array is greater than 1
         while(this.clusters.length > 1) {
@@ -76,12 +106,12 @@ class Cluster {
                 }
             }
 
-            // Decrease the cluster id
-            currentclustid += 1;
+            // Increse the cluster level
+            currentclustlevel += 1;
 
             var mergedObject = this.merge(this.clusters[lowestpair[0]].object, this.clusters[lowestpair[1]].object);
             var newCluster = new BiCluster({object: mergedObject, left: this.clusters[lowestpair[0]],
-                right: this.clusters[lowestpair[1]], weight: biggest, id: currentclustid});
+                right: this.clusters[lowestpair[1]], weight: biggest, level: currentclustlevel});
         
             this.clusters.splice(lowestpair[1], 1);
             this.clusters.splice(lowestpair[0], 1);
@@ -90,4 +120,4 @@ class Cluster {
     }
 }
 
-export default Cluster;
+export default Clustering;
