@@ -1,4 +1,4 @@
-// Ref: https://becominghuman.ai/hierarchical-clustering-in-javascript-brief-introduction-2f88e8601362
+import { Vector3 } from "three";
 
 function BiCluster(opt) {
     this.left = opt.left || null;
@@ -6,18 +6,20 @@ function BiCluster(opt) {
     this.object = opt.object;
     this.level = opt.level || 0;
     this.weight = opt.weight || 0.0;
+    this.worldPos = opt.worldPos || new Vector3();
 }
 
 function Cluster(id) {
     this.id = id || 0;
     this.object = [];
+    this.worldPos = new Vector3();
 }
 
 class Clustering {
     constructor() {
         this.clusters = [];
-        this.images = 0;
-        this.number = 0;
+        this.numberObjects = 0;
+        this.numberClusters = 0;
     }
     
     merge(a, b) {
@@ -38,10 +40,16 @@ class Clustering {
         return (a + b)/2.;
     }
 
+    averagePos(a, b) {
+        return a.clone().add(b.clone()).divideScalar(2);
+    }
+
     searchTree(cluster, number) {
         var result = new Cluster(cluster.level);
+        result.worldPos = cluster.worldPos;
         if(cluster.level == number) {
             var node = new Cluster(cluster.level);
+            node.worldPos = cluster.worldPos;
             node.object = cluster.object;
             result.object = [node];
         }
@@ -59,30 +67,33 @@ class Clustering {
                 else result.object = result.object.concat(right.object);
             }
         }
+
         return result;
     }
 
     getClustersByNumber(number) {
-        if(this.images > 0 && number > 0) {
-            this.number = number;
-            var total = number > this.images ? 0 : this.images - number;
+        if(this.numberObjects > 0 && number > 0) {
+            this.numberClusters = number;
+            var total = number > this.numberObjects ? 0 : this.numberObjects - number;
             return this.searchTree(this.clusters[0], total).object;
         } 
         else {
-            this.number = 0;
+            this.numberClusters = 0;
             return new Array();
         }
     }
 
+    // Ref: https://becominghuman.ai/hierarchical-clustering-in-javascript-brief-introduction-2f88e8601362
     hcluster(objects) {
         this.clusters = [];
-        this.images = objects.length;
+        this.numberObjects = objects.length;
 
         var currentclustlevel = 0;
 
         // Consider all data points as individual clusters
         this.clusters = objects.map(object => {
-            return new BiCluster({object: object, level: 0, weight: object.weight.viewpoint})});
+            return new BiCluster({object: object, level: 0, weight: object.weight.viewpoint,
+                worldPos: object.worldPos.clone()})});
         
         // Loop until the lengt of the cluster array is greater than 1
         while(this.clusters.length > 1) {
@@ -110,8 +121,9 @@ class Clustering {
             currentclustlevel += 1;
 
             var mergedObject = this.merge(this.clusters[lowestpair[0]].object, this.clusters[lowestpair[1]].object);
+            var mergedPosition = this.averagePos(this.clusters[lowestpair[0]].worldPos, this.clusters[lowestpair[1]].worldPos);
             var newCluster = new BiCluster({object: mergedObject, left: this.clusters[lowestpair[0]],
-                right: this.clusters[lowestpair[1]], weight: biggest, level: currentclustlevel});
+                right: this.clusters[lowestpair[1]], weight: biggest, level: currentclustlevel, worldPos: mergedPosition});
         
             this.clusters.splice(lowestpair[1], 1);
             this.clusters.splice(lowestpair[0], 1);

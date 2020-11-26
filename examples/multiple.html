@@ -44,16 +44,31 @@
         <span id="openNav" title="open sidebar" class="w3-button w3-transparent w3-display-topleft w3-large w3-hover" onclick="openMenu()">☰</span>
 
         <!-- !Page Content -->
-        <iframe id="myRenderer" class = "w3-card w3-light-gray w3-margin-bottom" src="multiple-renderer.html">
-        </iframe>
+        <div id="myContent" class="w3-display-container w3-light-gray w3-card">
+            <!-- !Canvas -->
+            <iframe id="myRenderer" class = "w3-card w3-light-gray w3-margin-bottom" src="multiple-renderer.html">
+            </iframe>
+
+
+
+            <div id="myCluster">
+                <div class="w3-padding-small w3-col w3-center" style="width:150px;flex-shrink:0;">
+                    <div class="w3-black w3-round" style="width:fit-content;height:fit-content;">
+                        <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border-large w3-border-black w3-round w3-hover-border-blue" style="height:44.8px;cursor:pointer;">
+                        <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/niepce/img/1989.57.16.27.jpg" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border-large w3-border-black w3-round w3-hover-border-blue" style="height:44.8px;cursor:pointer;">
+                    </div>
+                </div>
+            </div>
+
+            
+        </div>
 
         <!-- Image slider -->
         <div id="mySlider" class="w3-container w3-padding w3-light-gray w3-card w3-animate-bottom">  
             <div id="rowSlider" class="w3-row-padding"></div>
         </div>
 
-        <!-- Cluster image menu -->
-        <div id="myCluster" class="w3-display-container w3-light-gray w3-card">
+            <!--
             <div id="leftCluster" class="w3-display-left">
 
                 <div class="w3-padding-small w3-col w3-center" style="width:150px;flex-shrink:0;">
@@ -110,7 +125,7 @@
                 </div>
             </div>
             <div id="bottomCluster" class="w3-display-bottommiddle"></div>
-        </div>
+            -->
 
         <script src="js/web/menu.js"></script>
     </body>

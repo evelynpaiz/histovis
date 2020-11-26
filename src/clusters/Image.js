@@ -19,20 +19,6 @@ class Image {
         // Checks if two frustum intersect
 
     }
-
-    /*
-
-    set2DPosition(camera, width, height) {
-        var p = this.worldPos.clone();
-        var vector = p.project(camera);
-
-        vector.x = (vector.x + 1) / 2 * width;
-        vector.y = -(vector.y - 1) / 2 * height;
-
-        this.screenPos = new Vector2().copy(vector);
-    }
-
-    */
 }
 
 export default Image;

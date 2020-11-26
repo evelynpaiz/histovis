@@ -446,9 +446,10 @@ function setTexture(camera) {
 function setCamera(camera) {
     setView(camera);
     setTexture(camera);
-    if(window.location !== window.parent.location) {
-        setThumbnail(camera.name, "-slider");
-        setThumbnail(camera.name, "-cluster");
+    if(window.location !== window.parent.location)  setThumbnail(camera.name, '-slider', 'w3-border-large');
+    if(params.clustering.apply) {
+        updateClustering(camera);
+        if(window.location !== window.parent.location) setThumbnail(camera.name, '-cluster', 'w3-border-large');
     }
 }
 
@@ -568,7 +569,7 @@ function interpolateCamera(timestamp) {
             nextCamera.timestamp = undefined;
             
             if(controls) controls.saveState();
-            if(params.clustering.apply) updateClustering(viewCamera);
+
             showMaterials(true);
         }
         viewCamera.updateProjectionMatrix(); 
@@ -606,7 +607,7 @@ function basicClean() {
     worldPlane.visible = true;
 
     if(window.location !== window.parent.location) {
-        var arr = ["rowSlider", "leftCluster", "rightCluster", "bottomCluster", "topCluster"]; 
+        var arr = ["rowSlider", "myCluster"]; 
         arr.forEach(emptyThumbnail);
     }
 

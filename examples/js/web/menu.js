@@ -2,6 +2,7 @@ var vis = {sidebar: true, type: 0};
 
 const frame = document.getElementById("myRenderer");
 var slider = document.getElementById("mySlider");
+var content = document.getElementById("myContent");
 var cluster = document.getElementById("myCluster");
 
 frame.addEventListener("load", function() {
@@ -57,55 +58,36 @@ function openMenu() {
     document.getElementById('mySidebar').style.display = 'block';
     vis.sidebar = true;
 
-    if(vis.type == 2) { // cluster visualization
-        frame.style.marginLeft = '370px';
-        frame.style.width = 'calc(100% - 540px)';
-    } else {
-        frame.style.marginLeft = '210px';
-        frame.style.width = 'calc(100% - 220px)';
-    }
-
     slider.style.marginLeft = '210px';
     slider.style.width = 'calc(100% - 220px)';
 
-    cluster.style.marginLeft = '210px';
-    cluster.style.width = 'calc(100% - 220px)';
+    content.style.marginLeft = '210px';
+    content.style.width = 'calc(100% - 220px)';
 }
 
 function closeMenu() {
     document.getElementById('mySidebar').style.display = 'none';
     vis.sidebar = false;
-
-    if(vis.type == 2) { // cluster visualization
-        frame.style.marginLeft = '170px';
-        frame.style.width = 'calc(100% - 340px)';
-    } else {
-        frame.style.marginLeft = '10px';
-        frame.style.width = 'calc(100% - 20px)';
-    }
     
     slider.style.marginLeft = '10px';
     slider.style.width = 'calc(100% - 20px)';
 
-    cluster.style.marginLeft = '10px';
-    cluster.style.width = 'calc(100% - 20px)';
+    content.style.marginLeft = '10px';
+    content.style.width = 'calc(100% - 20px)';
 }
 
 function openSlider() {
-    cluster.style.display = 'none';
     slider.style.display = 'block';
+    cluster.style.display = 'none';
     vis.type = 1;
 
-    if(vis.sidebar) {
-        frame.style.marginLeft = '210px';
-        frame.style.width = 'calc(100% - 220px)';
-    } else {
-        frame.style.marginLeft = '10px';
-        frame.style.width = 'calc(100% - 20px)';
-    }
+    frame.style.marginLeft = '0px';
+    frame.style.width = '100%';
+    frame.style.top = '0px';
+    frame.style.height = '100%';
 
-    frame.style.top = '10px';
-    frame.style.height = 'calc(100% - 136px)';
+    fullContent();
+    content.style.height = 'calc(100% - 136px)';
 }
 
 function openCluster() {
@@ -113,31 +95,36 @@ function openCluster() {
     cluster.style.display = 'block';
     vis.type = 2;
 
-    if(vis.sidebar) {
-        frame.style.marginLeft = '354px';
-        frame.style.width = 'calc(100% - 508px)';
-    } else {
-        frame.style.marginLeft = '170px';
-        frame.style.width = 'calc(100% - 340px)';
-    }
+    fullContent();
 
+    frame.style.marginLeft = '144px';
+    frame.style.width = 'calc(100% - 288px)';
     frame.style.top = '116px';
     frame.style.height = 'calc(100% - 234px)';
 }
 
 function closeImageVis() {
-    cluster.style.display = 'none';
     slider.style.display = 'none';
+    cluster.style.display = 'none';
     vis.type = 0;
 
+    fullContent();
+
+    frame.style.marginLeft = '0px';
+    frame.style.width = '100%';
+    frame.style.top = '0px';
+    frame.style.height = '100%';
+}
+
+function fullContent() {
     if(vis.sidebar) {
-        frame.style.marginLeft = '210px';
-        frame.style.width = 'calc(100% - 220px)';
+        content.style.marginLeft = '210px';
+        content.style.width = 'calc(100% - 220px)';
     } else {
-        frame.style.marginLeft = '10px';
-        frame.style.width = 'calc(100% - 20px)';
+        content.style.marginLeft = '10px';
+        content.style.width = 'calc(100% - 20px)';
     }
 
-    frame.style.top = '10px';
-    frame.style.height = 'calc(100% - 20px)';
+    content.style.top = '10px';
+    content.style.height = 'calc(100% - 20px)';
 }

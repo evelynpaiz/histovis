@@ -220,16 +220,18 @@
                 // Clustering
                 if(params.clustering.apply) {
                     function updateClusterImgFromGUI(value) {
-                        if(value != clusters.images) {
+                        if(value != clusters.numberObjects) {
                             params.clustering.images = Math.floor(value);
                             updateClustering(viewCamera);
+                            setThumbnail(viewCamera.name, '-cluster', 'w3-border-large');
                         }
                     };
 
                     function updateClusterThumbFromGUI(value) {
-                        if(value != clusters.number) {
+                        if(value != clusters.numberClusters) {
                             params.clustering.clusters = Math.floor(value);
-                            updateClusterThumbnail(clusters.getClustersByNumber(Math.floor(value)));
+                            updateClustering(viewCamera);
+                            setThumbnail(viewCamera.name, '-cluster', 'w3-border-large');
                         }
                     };
 
