@@ -29,8 +29,10 @@
   },
   "dependencies": {
     "three": "^0.116.1",
+    "numeric": "^1.2.6",
     "photogrammetric-camera": "file:modules/photogrammetric-camera",
-    "itowns": "file:modules/itowns"
+    "itowns": "file:modules/itowns",
+    "pixi": "file:modules/pixi"
   },
   "directories": {
     "example": "examples"

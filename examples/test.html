@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>HistoVis - Multiple Image Visualization</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link rel="shortcut icon" href="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.ico">
+        <style>
+            html { height: 100%; }
+            body { margin: 0; overflow: hidden; height: 100%; }
+            #viewerDiv { margin: auto; height: 100%; width: 100%; padding: 0; }
+            canvas { display: block }
+        </style>
+    </head>
+    <body>
+        <script src="../dist/itowns.js"></script>
+        <script>
+            // Itowns library
+            var itowns = histovis.itowns;
+        </script>
+
+        <script src="../dist/three.js"></script>
+        <script>
+            // Three library
+            var THREE = histovis.THREE;
+            // Data GUI
+            var GUI = histovis.GUI;
+        </script>
+
+        <script src="../dist/three-additional.js"></script>
+        <script>
+            // Three library
+            var MapControls = histovis.MapControls;
+            var PLYLoader = histovis.PLYLoader;
+        </script>
+
+        <script src="../dist/photogrammetric-camera.js"></script>
+        <script>
+            // Files Management
+            var FetchSource = histovis.photogrammetricCamera.FetchSource;
+            var FilesSource = histovis.photogrammetricCamera.FilesSource;
+            // Parsers
+            var MatisOrientationParser = histovis.photogrammetricCamera.MatisOrientationParser;
+            var MicmacOrientationParser = histovis.photogrammetricCamera.MicmacOrientationParser;
+            var GoogleOrientationParser = histovis.GoogleOrientationParser;
+            // Materials
+            var OrientedImageMaterial = histovis.photogrammetricCamera.OrientedImageMaterial;
+            var MultipleOrientedImageMaterial = histovis.photogrammetricCamera.MultipleOrientedImageMaterial;
+            var imageVS = histovis.photogrammetricCamera.imageVS;
+            var imageFS = histovis.photogrammetricCamera.imageFS;
+            var multipleVS = histovis.photogrammetricCamera.multipleVS;
+            var multipleFS = histovis.photogrammetricCamera.multipleFS;
+            // Photogrammetric camera
+            var PhotogrammetricCamera = histovis.photogrammetricCamera.PhotogrammetricCamera;
+        </script>
+
+        <script src="../dist/cluster.js"></script>
+        <script>
+            // PIXI library
+            var PIXI = histovis.PIXI;
+            // Insets
+            var Inset = histovis.Inset;
+            // Clusters
+            var Node = histovis.Node;
+            var Clustering = histovis.Clustering;
+        </script>
+
+        <script src="js/web/insets.js"></script>
+        <script src="js/helper/photogrammetricHelper.js"></script>
+        <script src="js/helper/photogrammetricHelperGlobe.js"></script>
+        <script>
+            /* ------------------------- Main ------------------------ */
+            init();
+            var gui = initGUI();
+            animate();
+
+            /* ----------------------- Functions --------------------- */
+            function init() {
+                // HTML container for the rendering scene
+                var container = document.createElement('div');
+                container.setAttribute('id', 'viewerDiv');
+                document.body.appendChild(container);
+
+                // Sizes
+                width = window.innerWidth;
+                height = window.innerHeight;
+
+                // PIXI App
+                PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.LINEAR;
+                app = new PIXI.Application( width, height , {
+                    backgroundColor   : 0x86D0F2,
+                    transparent       : true,
+                    resolution        : devicePixelRatio,
+                    antialias         : true,
+                    legacy            : true,
+                    clearBeforeRender : true,
+                    autoResize        : true,
+                    powerPreference   : 'high-performance'
+                });
+                container.appendChild(app.view);
+
+                // View Camera
+                viewCamera.zoom = 0.5;
+                viewCamera.up.set(0, 0, 1);
+
+                // Globe
+                initGlobe(container, viewCamera);
+                container.removeChild(container.lastChild);
+
+                // Scene
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xf0f0f0);
+
+                // Cameras 
+                cameras = new THREE.Group();
+                cameras.visible = false;
+                scene.add(viewCamera);
+
+                // Materials
+                basicMaterial = initBasicMaterial();
+                wireMaterial = initWireMaterial();
+                [multipleTextureMaterialUniforms, multipleTextureMaterial] = initMultipleTextureMaterial(
+                    multipleVS, multipleFS, uvTexture, view.mainLoop.gfxEngine.renderer);
+                viewMaterialUniforms = initCameraMaterialUniforms(imageVS, imageFS, uvTexture);
+
+                // Environment
+                environment = new THREE.Group();
+                backgroundSphere = initBackgroundSphere(multipleTextureMaterial);
+                worldPlane = initWorldPlane(multipleTextureMaterial);
+
+                environment.add(backgroundSphere);
+                environment.add(worldPlane);
+                environment.visible = false;
+
+                initBuildings(multipleTextureMaterial);
+                
+                // THREEJS to PIXI
+                renderer = view.mainLoop.gfxEngine.renderer;
+                textureTHREE = PIXI.BaseTexture.fromCanvas(renderer.domElement, PIXI.SCALE_MODES.LINEAR); 
+                spriteTHREE = new PIXI.Sprite.from(new PIXI.Texture(textureTHREE));
+
+                // Scale in x and y
+                spriteTHREE.scale.set(0.82, 0.75);
+                // Center the sprite's anchor point
+                spriteTHREE.anchor.set(0.5);
+                // Move to the center of the screen
+                spriteTHREE.x = app.screen.width / 2;
+                spriteTHREE.y = app.screen.height / 2;
+
+                var posX = (width - spriteTHREE.width) / 2.;
+                var posY = (height- spriteTHREE.height) / 2.;
+                app.stage.addChild(spriteTHREE); 
+
+                /*
+                // PIXIJS insets
+                var totalInsets = 2;
+                var images = [ 
+                    'https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0005.JPG',
+                    'https://histovis.s3.eu-west-3.amazonaws.com/collections/niepce/img/1989.57.16.27.jpg'
+                ];
+
+                var inset = new Inset(posX, posY, 0, 0);
+                inset.loadImages(' ', images);
+                app.stage.addChild(inset.container);
+                insets.push(inset);
+
+                for (var i = 0; i < totalInsets; i++) {
+                    var x = i*200;
+                    var y = 0;
+                    var inset = new Inset(posX, posY, x, y);
+                    inset.loadImages(' ', [images[i]]);
+                    app.stage.addChild(inset.container);
+                    insets.push(inset);
+                }
+                */
+
+                // Available collections
+                collections = {
+                    Sample: function(){
+                        clean();
+                        params.clustering.apply = true;
+                        scene.add(environment);
+                        scene.add(cameras);
+                        worldPlane.visible = false;
+                        globeRendering = false;
+                        var path = 'https://raw.githubusercontent.com/micmacIGN/Documentation/master/FilesSamples/';
+                        var source = new FetchSource(path);
+                        loadOrientation('Orientation-00.xml', source);
+                        loadOrientation('Orientation-1.xml', source);
+                        updateEnvironment();
+                    },
+                    Maurepas: function() {
+                        clean();
+                        params.clustering.apply = true;
+                        scene.add(environment);
+                        scene.add(cameras);
+                        globeRendering = false;
+                        params.collection = 'collections/maurepas/';
+                        loadJSON(multipleTextureMaterial, server + params.collection);
+                    },
+                    Viabon: function() {
+                        clean();
+                        params.clustering.apply = true;
+                        view.scene.add(environment);
+                        view.scene.add(cameras);
+                        globeRendering = true;
+                        backgroundSphere.visible = false;
+                        params.collection = 'collections/viabon/';
+                        loadJSONGlobe(multipleTextureMaterial, server + params.collection);
+                    },
+                    Niepce: function(){
+                        clean();
+                        params.clustering.apply = true;
+                        view.scene.add(environment);
+                        view.scene.add(cameras);
+                        globeRendering = true;
+                        params.collection = 'collections/niepce/';
+                        loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'niepce-full.json');
+                    },
+                    Nanterre: function(){
+                        clean();
+                        params.clustering.apply = true;
+                        view.scene.add(environment);
+                        view.scene.add(cameras);
+                        globeRendering = true;
+                        params.collection = 'collections/ign_nanterre/';
+                        loadJSONGlobe(multipleTextureMaterial, server + params.collection);
+                    }
+                };
+
+                // Event listeners
+                document.addEventListener('keydown', onDocumentKeyDown, false);
+                window.addEventListener('resize', onWindowResizePIXI, false);
+
+                /* Event --------------------------------------------- */
+                function onWindowResizePIXI() {
+                    textureTHREE.update(); 
+                    width = window.innerWidth;
+                    height = window.innerHeight;
+
+                    app.renderer.resize(width, height);
+
+                    // Scale in x and y
+                    spriteTHREE.scale.set(0.82, 0.7);
+                    // Center the sprite's anchor point
+                    spriteTHREE.anchor.set(0.5);
+                    // Move to the center of the screen
+                    spriteTHREE.x = app.screen.width / 2;
+                    spriteTHREE.y = app.screen.height / 2;
+
+                    var posX = (width - spriteTHREE.width) / 2.;
+                    var posY = (height- spriteTHREE.height) / 2.;
+
+                    insets.forEach(inset => {
+                        inset.update(posX, posY);
+                    });
+                }
+
+                /* Rendering ----------------------------------------- */
+                view.render = function render(){
+                    renderer.setRenderTarget(null);
+                    renderer.clear();
+
+                    if(globeRendering) renderer.render(view.scene, viewCamera);
+                    else renderer.render(scene, viewCamera);
+                }
+
+                /* Clean --------------------------------------------- */
+                function clean() {
+                    basicClean();
+                }
+            }
+
+            function initGUI() {
+                var gui = new GUI();
+
+                // Collections options
+                function menuCollections(){
+                    for(const key in collections) collectionsGUI.add(collections, key);
+                    collectionsGUI.closed = false;
+                }
+
+                if(!parent.document.getElementById('mySidebar')){
+                    var collectionsGUI = gui.addFolder('Collections');
+                    menuCollections();
+                } 
+
+                // View Camera
+                function updateViewCameraFromGUI() {
+                    viewCamera.updateProjectionMatrix();
+                    view.notifyChange(true);
+                };
+
+                var viewGUI = gui.addFolder('View Camera'); // View
+                viewGUI.visible = viewGUI.add(cameras, 'visible');
+                viewGUI.zoom = viewGUI.add(viewCamera, 'zoom', 0, 2).onChange(updateViewCameraFromGUI);
+
+                // Texture Camera
+                var textureGUI = gui.addFolder('Historical Camera');
+                textureGUI.opacity = textureGUI.add(multipleTextureMaterial, 'opacity', 0, 1);
+                textureGUI.number = textureGUI.add(multipleTextureMaterial, 'orientedImageCount', 0, 1);
+
+                // Background 
+                function updateElevationFromGUI(value) {
+                    params.environment.elevation = value;
+                    if(globeRendering) updateEnvironmentGlobe();
+                    else updateEnvironment();
+                }
+                var backgroundGUI = gui.addFolder('Background');
+                backgroundGUI.wireframe = backgroundGUI.add(multipleTextureMaterial, 'wireframe');
+                backgroundGUI.sphere = backgroundGUI.add(backgroundSphere, 'visible').name('sphere visible');
+                backgroundGUI.plane = backgroundGUI.add(worldPlane, 'visible').name('plane visible');
+                backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -20, 20)
+                    .name('plane elevation').onChange(updateElevationFromGUI);
+
+                // Debug
+                var debugGUI = gui.addFolder('Debug');
+                debugGUI.borderSharpness = debugGUI.add(multipleTextureMaterial.debug, 'borderSharpness', 2, 1000).name("border sharpness");
+                debugGUI.diffuseColorGrey = debugGUI.add(multipleTextureMaterial.debug, 'diffuseColorGrey');
+
+                // Update controls functions
+                gui.updateGUI = function updateGUI() {
+                    viewGUI.zoom.setValue(viewCamera.zoom);
+                    backgroundGUI.sphere.setValue(environment.children[0].visible);
+                    backgroundGUI.plane.setValue(environment.children[1].visible);
+                    backgroundGUI.elevation.setValue(params.environment.elevation);
+                    var name = textureCamera.name;
+                    if (name.length > 0) {
+                        if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
+                        textureGUI.name = 'Hist: ' + name;
+                    }     
+                    if (multipleTextureMaterial.defines.MAX_TEXTURE > cameras.children.length) {
+                        if(cameras.children.length > 1)
+                            textureGUI.number.max(cameras.children.length);
+                        else
+                            textureGUI.number.max(1);
+                    } else {
+                        textureGUI.number.max(multipleTextureMaterial.defines.MAX_TEXTURE);
+                    }
+                    textureGUI.number.setValue(Math.floor(multipleTextureMaterial.orientedImageCount));
+                }
+                return gui;
+            }
+            
+            function animate(timestamp) {
+                params.clustering.images = cameras.children.length;
+                params.clustering.clusters = cameras.children.length;
+                interpolateCameraGlobe(timestamp);
+                multipleTextureMaterial.setCamera(textureCamera, textures);
+                gui.updateGUI();
+                multipleTextureMaterial.transparent = true;
+                insets.forEach(inset => inset.move());
+                if(!globeRendering) view.notifyChange(true);
+                textureTHREE.update(); 
+                requestAnimationFrame(animate);
+            }
+        </script>
+    </body>
+</html>

@@ -7,10 +7,12 @@ var viewCamera = new PhotogrammetricCamera();
 var nextCamera = new PhotogrammetricCamera();
 var textureCamera = new PhotogrammetricCamera();
 
-var renderer, scene, cameras, controls;
+var app, renderer, scene, cameras, controls;
 var environment, backgroundSphere, worldPlane;
 
 var composer, scenePass;
+
+var mesh;
 
 var basicMaterial, wireMaterial, textureMaterial, multipleTextureMaterial, viewMaterials = {};
 var textureMaterialUniforms, multipleTextureMaterialUniforms, viewMaterialUniforms, sceneMaterialUniforms;
@@ -18,6 +20,8 @@ var textureMaterialUniforms, multipleTextureMaterialUniforms, viewMaterialUnifor
 var textureLoader = new THREE.TextureLoader();
 const uvTexture = textureLoader.load('data/uv.jpg');
 var textures = {}, images = {};
+
+var textureTHREE, spriteTHREE;
 
 var params = {
     collection: undefined,
@@ -28,9 +32,7 @@ var params = {
     interpolation: {duration: 3.}
 };
 
-var clock = new THREE.Clock();
-
-var frustum = new THREE.Frustum();
+var insets = [];
 var clusters = new Clustering();
 
 /* ----------------------- Functions --------------------- */
@@ -330,9 +332,6 @@ function handleOrientation(name) {
     return function(camera) {
         if (!camera) return;
         handleCamera(camera, name);
-        if(window.location !== window.parent.location) {
-            handleBasicThumbnail(camera);
-        }
         if(cameras.children.length < 2) setCamera(camera);
         return camera;
     };
@@ -446,11 +445,7 @@ function setTexture(camera) {
 function setCamera(camera) {
     setView(camera);
     setTexture(camera);
-    if(window.location !== window.parent.location)  setThumbnail(camera.name, '-slider', 'w3-border-large');
-    if(params.clustering.apply) {
-        updateClustering(camera);
-        if(window.location !== window.parent.location) setThumbnail(camera.name, '-cluster', 'w3-border-large');
-    }
+    updateClustering(camera);
 }
 
 function setMaterial(material, camera) {
@@ -487,41 +482,33 @@ function updateMaterial(material) {
     setRadius(material, viewCamera);
 }
 
-function updateControls() {
-    var distance = new THREE.Vector3().subVectors(viewCamera.position, controls.target).length();
-    // apply transformation - matrix, euler rotation, or quaternion?
-    var normal = new THREE.Vector3(0,0,-1).applyQuaternion(viewCamera.quaternion);
-    // instead of quaternion, you could also use .applyEuler(camera.rotation);
-    // or if you used matrix, extract quaternion from matrix
-    controls.target = new THREE.Vector3().add(viewCamera.position).add(normal.setLength(distance));
-    //var vector = (new THREE.Vector3( 0, 0, -environmentRadius )).applyQuaternion( viewCamera.quaternion ).add( viewCamera.position );
-    //controls.target.copy(vector);
-    controls.saveState();
-}
-
-function normalize(val, max, min) {
-    return Math.max(0, Math.min(1, (val - min) / (max - min)));
-}
-
 function updateClustering(camera) {
-    // Update view camera frustum
     camera.updateMatrix();
     camera.updateMatrixWorld();
+
+    // Frustum the camera to the infinity
+    var frustum = new THREE.Frustum();
     frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    // Ray with camera as origin 
+    var ray = new THREE.Raycaster(camera.position.clone(), camera.getWorldDirection(new THREE.Vector3()));
+
+    var rayIntersects = ray.intersectObjects([worldPlane, backgroundSphere], true);
+    var point = rayIntersects[0].point;
 
     // Compute distances from view camera
     var images = cameras.children.map(c => {
-        var image = new Image(c); 
-        image.computeDistances(camera, frustum);
+        var image = new Node(c, [worldPlane, backgroundSphere]); 
+        image.computeDistances(camera, frustum, point);
         return image;
     });
 
     // Normalize distances
     var maxDistanceViewpoint = Math.max.apply(Math, images.map(o => o.distance.viewpoint));
-    images.forEach(i => {i.weight.viewpoint = normalize(i.distance.viewpoint, 0, maxDistanceViewpoint)});
+    var maxDistanceProjection = Math.max.apply(Math, images.map(o => o.distance.projection));
+    images.forEach(i => {i.normalizeDistances(maxDistanceViewpoint, maxDistanceProjection)});
 
     // Rank weights in descending order
-    images.sort((a,b) => (a.weight.viewpoint < b.weight.viewpoint) ? 1 : ((b.weight.viewpoint < a.weight.viewpoint) ? -1 : 0));
+    images.sort((a,b) => (a.weight.mean < b.weight.mean) ? 1 : ((b.weight.mean < a.weight.mean) ? -1 : 0));
 
     // Filter the number of images
     images = images.filter((i, index) => (index < params.clustering.images));
@@ -529,21 +516,8 @@ function updateClustering(camera) {
     // Cluster objects
     clusters.hcluster(images);
 
-    // Render thumbnails
-    updateClusterThumbnail(clusters.getClustersByNumber(params.clustering.clusters));
-
-    /*
-    // Filter objects
-    frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
-    var canvas = view.mainLoop.gfxEngine.renderer.getContext().canvas;
-
-    // Filter objects
-    var objects = cameras.children.filter(c => frustum.containsPoint(c.position.clone())).map(c => {
-        var image = new Image(c); 
-        image.set2DPosition(camera, canvas.width, canvas.height);
-        return image;
-    });
-    */
+    // Render the insets
+    updateInsets(clusters.getClustersByNumber(params.clustering.clusters), camera);
 }
 
 /* Show ---------------------------------------------- */
@@ -578,7 +552,7 @@ function interpolateCamera(timestamp) {
 
 /* Clean --------------------------------------------- */
 function basicClean() {
-    var params = {
+    params = {
         collection: undefined,
         cameras: {size: 10000},
         environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
@@ -605,11 +579,6 @@ function basicClean() {
 
     backgroundSphere.visible = true;
     worldPlane.visible = true;
-
-    if(window.location !== window.parent.location) {
-        var arr = ["rowSlider", "myCluster"]; 
-        arr.forEach(emptyThumbnail);
-    }
 
     Object.keys(textures).forEach(key => textures[key].dispose());
     Object.keys(images).forEach(key => delete images[key]);

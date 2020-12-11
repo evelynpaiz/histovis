@@ -4,3 +4,6 @@
 [submodule "modules/itowns"]
 	path = modules/itowns
 	url = https://github.com/epaizreyes/itowns.git
+[submodule "modules/pixi"]
+	path = modules/pixi
+	url = https://github.com/pixijs/pixi.js.git

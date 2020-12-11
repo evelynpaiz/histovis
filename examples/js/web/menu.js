@@ -4,14 +4,44 @@ const frame = document.getElementById("myRenderer");
 var slider = document.getElementById("mySlider");
 var content = document.getElementById("myContent");
 var cluster = document.getElementById("myCluster");
+//var cluster = document.createElement('div');
 
 frame.addEventListener("load", function() {
+    // Load collections
     var collections = frame.contentWindow.collections;
     document.getElementById('myCollections').innerHTML = '';
     for(const key in collections){
         var value = collections[key];
         createCollectionElement(key, value);
     } 
+
+    /*
+    // Create a Pixi renderer and define size and a background color
+    var PIXI = frame.contentWindow.PIXI;
+    var renderer = PIXI.autoDetectRenderer(content.offsetWidth, content.offsetHeight, {
+        antialias: true,
+        // Create transparent canvas
+        transparent: false,
+        // Change background color to blue
+        backgroundColor: '0x86D0F2'
+    });
+
+    // Append canvas element to the content
+    cluster.setAttribute('id', 'myCluster');
+    cluster.appendChild(renderer.view);
+    content.appendChild(cluster);
+
+    // Create a container that will hold the scene
+    var stage = frame.contentWindow.stage;
+
+    // Add stage to the canvas
+    render();
+                    
+    function render(){
+        requestAnimationFrame(render);
+        renderer.render(stage);
+    }
+    */
 });
 
 document.addEventListener('keydown', e => {
