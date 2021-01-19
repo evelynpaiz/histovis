@@ -72,14 +72,15 @@ function initBuildings(material) {
     });
 
     var wfsBuildingLayer = new itowns.GeometryLayer('building', new THREE.Group(), {
+        transparent: true,
         update: itowns.FeatureProcessing.update,
         convert: itowns.Feature2Mesh.convert({
             color: colorBuildings,
             batchId: function (property, featureId) { return featureId; },
             altitude: altitudeBuildings,
-            extrude: extrudeBuildings 
+            extrude: extrudeBuildings
         }),
-        onMeshCreated: function scaleZ(building) {
+        onMeshCreated: function modifyBuilding(building) {
             var geometry = building.geometry;
             var visibility = new Float32Array(Array(geometry.attributes.position.count).fill(1.));
             geometry.setAttribute('visibility', new THREE.BufferAttribute(visibility, 1));
@@ -98,12 +99,13 @@ function initBuildings(material) {
 
     /* Environment Management ---------------------------- */
     function colorBuildings(properties) {
-        if (properties.id.indexOf('bati_remarquable') === 0) {
-            return color.set(0x5555ff);
-        } else if (properties.id.indexOf('bati_industriel') === 0) {
-            return color.set(0xff5555);
-        }
-        return color.set(0xeeeeee);
+        //if (properties.id.indexOf('bati_remarquable') === 0) {
+        //    return color.set(0x5555ff);
+        //} else if (properties.id.indexOf('bati_industriel') === 0) {
+        //    return color.set(0xff5555);
+        //}
+        //return color.set(0xeeeeee);
+        return color.set(0xe91e63);
     }
 
     function altitudeBuildings(properties) {
@@ -126,10 +128,7 @@ function loadJSONGlobe(material, path, file) {
     source.open(file, 'text').then((json) => {
         json = JSON.parse(json);
 
-        if(json.target) {
-            params.environment.center.copy(json.target);
-            if(controls) controls.target.copy(json.target);
-        } 
+        if(json.target) params.environment.center.copy(json.target);
 
         if(json.camera) {
             if(json.camera.scale) params.cameras.size = json.camera.scale;
@@ -174,6 +173,10 @@ function updateEnvironmentGlobe() {
 
 /* Movement ------------------------------------------ */
 function interpolateCameraGlobe(timestamp) {
+    if (globeRendering && controls && prevCamera.timestamp !== undefined && timestamp > nextCamera.timestamp) {
+        var coord = new itowns.Coordinates('EPSG:4978', nextCamera.position.x, nextCamera.position.y, nextCamera.position.z);
+        viewCamera.up.copy(coord.geodesicNormal);
+    }
     interpolateCamera(timestamp);
     if (prevCamera.timestamp !== undefined) view.notifyChange(view.camera.camera3D, true);
 }

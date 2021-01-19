@@ -272,7 +272,10 @@ function loadJSON(material, path, file) {
     source.open(file, 'text').then((json) => {
         json = JSON.parse(json);
 
-        if(json.target) params.environment.center.copy(json.target);
+        if(json.target) {
+            params.environment.center.copy(json.target);
+            if(controls) controls.target.copy(json.target);
+        } 
 
         if(json.camera) {
             if(json.camera.scale) params.cameras.size = json.camera.scale;
@@ -442,6 +445,7 @@ function setTexture(camera) {
 function setCamera(camera) {
     setView(camera);
     setTexture(camera);
+    //updateClustering(camera);
 }
 
 function setMaterial(material, camera) {
@@ -449,73 +453,10 @@ function setMaterial(material, camera) {
     material.setCamera(camera, viewCamera);
 }
 
-function setRadius(material, camera) {
+function setRadius(material, camera){
     material.setRadius(camera);
     material.setCenter(camera);
     material.uvDistortion.R.w = params.distortion.rmax*params.distortion.rmax*material.distortion.r2img;
-}
-
-function setTarget(camera) {
-    var coord = new itowns.Coordinates('EPSG:4978', camera.position.x, camera.position.y, camera.position.z);
-    viewCamera.up.copy(coord.geodesicNormal);
-
-    var center = new THREE.Vector3( 0, 0, -1).unproject(camera);
-    var targetDir = new THREE.Vector3( 0, 0, 1).unproject(camera).sub(center).normalize();  // target
-
-    viewCamera.lookAt(camera.position.clone().add(targetDir));
-    viewCamera.updateProjectionMatrix();
-
-    /*
-    // Center and four corners of the far plane from the camera (normalized)
-    var direction = [];
-    var center = new THREE.Vector3(  0,  0, -1).unproject(camera);
-
-    direction.push(new THREE.Vector3(  0,  0,  1).unproject(camera).sub(center).normalize());  // target
-
-    direction.push(new THREE.Vector3( -1, -1,  1).unproject(camera).sub(center).normalize());  // left bottom
-    direction.push(new THREE.Vector3( -1,  1,  1).unproject(camera).sub(center).normalize());  // left top
-    direction.push(new THREE.Vector3(  1,  1,  1).unproject(camera).sub(center).normalize());  // right top
-    direction.push(new THREE.Vector3(  1, -1,  1).unproject(camera).sub(center).normalize());  // right bottom
-
-    var ray = new THREE.Raycaster();
-    var projectedPoints = [];
-
-    // Picks their projected position in the world
-    direction.forEach(dir => {
-        // Creates a ray with camera as origin and the specific direction
-        ray.set(camera.position.clone(), dir);
-        var rayIntersects = ray.intersectObjects([worldPlane, backgroundSphere], true);
-        var firstIntersect = rayIntersects[0].point || null;
-
-        var geometry = new THREE.SphereBufferGeometry(-1, 32, 32);
-        var sphere = new THREE.Mesh(geometry, basicMaterial);
-        sphere.position.copy(firstIntersect);
-        sphere.scale.set(1000, 1000, 1000);
-        view.scene.add(sphere);
-
-        projectedPoints.push(firstIntersect);
-    });
-
-    var coord = new itowns.Coordinates('EPSG:4978',camera.position.x, camera.position.y, camera.position.z);
-    viewCamera.up.copy(coord.geodesicNormal);
-
-    var coord2 = itowns.CameraUtils.getTransformCameraLookingAtTarget(view, camera).coord.as('EPSG:4978');
-
-    //var distance = new THREE.Vector3().subVectors(camera.position, coord2.toVector3().clone()).length();
-    // apply transformation - matrix, euler rotation, or quaternion?
-    //var normal = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-    // instead of quaternion, you could also use .applyEuler(camera.rotation);
-    // or if you used matrix, extract quaternion from matrix
-    //viewCamera.lookAt(new THREE.Vector3().add(camera.position).add(normal.setLength(distance)));
-
-    var vect = new THREE.Vector3( 0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position);
-
-    viewCamera.lookAt(vect);
-
-    viewCamera.updateProjectionMatrix();
-    console.log(projectedPoints[0]);
-    console.log(coord2.toVector3().clone());
-    */
 }
 
 /* Update -------------------------------------------- */
@@ -532,12 +473,51 @@ function updateEnvironment() {
     worldPlane.lookAt(position.clone().add(normal));
     worldPlane.updateWorldMatrix();
 
+    if(controls) controls.maxDistance = params.environment.radius;
     environment.visible = true;
 }
 
 function updateMaterial(material) {
     material.setCamera(textureCamera, viewCamera);
     setRadius(material, viewCamera);
+}
+
+function updateClustering(camera) {
+    camera.updateMatrix();
+    camera.updateMatrixWorld();
+
+    // Frustum the camera to the infinity
+    var frustum = new THREE.Frustum();
+    frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    // Ray with camera as origin 
+    var ray = new THREE.Raycaster(camera.position.clone(), camera.getWorldDirection(new THREE.Vector3()));
+
+    var rayIntersects = ray.intersectObjects([worldPlane, backgroundSphere], true);
+    var point = rayIntersects[0].point;
+
+    // Compute distances from view camera
+    var images = cameras.children.map(c => {
+        var image = new Node(c, [worldPlane, backgroundSphere]); 
+        image.computeDistances(camera, frustum, point);
+        return image;
+    });
+
+    // Normalize distances
+    var maxDistanceViewpoint = Math.max.apply(Math, images.map(o => o.distance.viewpoint));
+    var maxDistanceProjection = Math.max.apply(Math, images.map(o => o.distance.projection));
+    images.forEach(i => {i.normalizeDistances(maxDistanceViewpoint, maxDistanceProjection)});
+
+    // Rank weights in descending order
+    images.sort((a,b) => (a.weight.mean < b.weight.mean) ? 1 : ((b.weight.mean < a.weight.mean) ? -1 : 0));
+
+    // Filter the number of images
+    images = images.filter((i, index) => (index < params.clustering.images));
+
+    // Cluster objects
+    clusters.hcluster(images);
+
+    // Render the insets
+    updateInsets(clusters.getClustersByNumber(params.clustering.clusters), camera);
 }
 
 /* Show ---------------------------------------------- */
@@ -562,7 +542,7 @@ function interpolateCamera(timestamp) {
             prevCamera.timestamp = undefined;
             nextCamera.timestamp = undefined;
             
-            if(controls) controls.reset(true);
+            if(controls) controls.saveState();
 
             showMaterials(true);
         }
@@ -593,7 +573,7 @@ function basicClean() {
     
     if(textureMaterial) textureMaterial.map = null;
 
-    if(controls) controls.reset();
+    if(controls) controls.target.set(0, 0, 0);
 
     while(environment.children.length > 2) environment.remove(environment.children[environment.children.length - 1]);
 
