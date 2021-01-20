@@ -294,7 +294,7 @@
                 requestAnimationFrame(animate);
                 
                 interpolateCameraGlobe(timestamp);
-                multipleTextureMaterial.setCamera(textureCamera, textures);
+                multipleTextureMaterial.updateCamera(textureCamera);
                 gui.updateGUI();
                 multipleTextureMaterial.transparent = true;
                 if(!globeRendering) view.notifyChange(true);

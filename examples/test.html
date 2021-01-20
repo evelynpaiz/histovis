@@ -346,7 +346,7 @@
                 params.clustering.images = cameras.children.length;
                 params.clustering.clusters = cameras.children.length;
                 interpolateCameraGlobe(timestamp);
-                multipleTextureMaterial.setCamera(textureCamera, textures);
+                multipleTextureMaterial.updateCamera(textureCamera);
                 gui.updateGUI();
                 multipleTextureMaterial.transparent = true;
                 insets.forEach(inset => inset.move());
