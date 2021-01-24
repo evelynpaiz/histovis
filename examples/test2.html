@@ -29,9 +29,14 @@
 
         <script src="../dist/three-additional.js"></script>
         <script>
-            // Three library
-            var MapControls = histovis.MapControls;
+            // Three additional
             var PLYLoader = histovis.PLYLoader;
+            var LineMaterial = histovis.LineMaterial;
+            var LineGeometry = histovis.LineGeometry;
+            var Line2 = histovis.Line2;
+
+            var LineSegmentsGeometry = histovis.LineSegmentsGeometry;
+            var LineSegments2 = histovis.LineSegments2;
         </script>
 
         <script src="../dist/photogrammetric-camera.js"></script>
@@ -65,6 +70,14 @@
         <script src="js/helper/photogrammetricHelperGlobe.js"></script>
 
         <script>
+            var marker = new THREE.Group();
+
+            var raycaster = new THREE.Raycaster();
+            var mouse = new THREE.Vector2();
+
+            raycaster.params.Line.threshold = 3;
+            raycaster.camera = viewCamera;
+
             /* ------------------------- Main ------------------------ */
             init();
             var gui = initGUI();
@@ -103,7 +116,7 @@
                 wireMaterial = initWireMaterial();
                 [multipleTextureMaterialUniforms, multipleTextureMaterial] = initMultipleTextureMaterial(
                     multipleVS, multipleFS, uvTexture, view.mainLoop.gfxEngine.renderer);
-                viewMaterialUniforms = initCameraMaterialUniforms(imageVS, imageFS, uvTexture);
+                markerMaterialUniforms = initMarkerMaterialUniforms();
 
                 // Environment
                 environment = new THREE.Group();
@@ -118,6 +131,9 @@
 
                 // Renderer
                 renderer = view.mainLoop.gfxEngine.renderer;
+
+                // Show the materials
+                showMaterials(true);
 
                 // Available collections
                 collections = {
@@ -175,6 +191,60 @@
 
                 // Event listeners
                 document.addEventListener('keydown', onDocumentKeyDown, false);
+                document.addEventListener('mousemove', onDocumentMouseMove, false);
+
+                /* Mouse --------------------------------------------- */
+                function onDocumentMouseMove(event) {
+                    // calculate mouse position in normalized device coordinates
+	                // (-1 to +1) for both components
+                    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+                    // Camera markers except the texture camera
+                    var array = cameras.children.map(camera => {return camera.children[0]}); // camera helpers
+                    const index = array.findIndex(marker => marker.name == textureCamera.name);
+                    if(index > -1) array.splice(index, 1);
+                    array = array.map(marker => {return marker.children[1]});
+
+                    //var direction = new THREE.vector3(mouse.x, mouse.y, 0.5).unproject(viewCamera).sub(origin).normalize();
+                    //this.applyMatrix4( camera.projectionMatrixInverse ).applyMatrix4( camera.matrixWorld );
+                    var inverseProj = new THREE.Matrix4().getInverse(viewCamera.projectionMatrix);
+                    var world = viewCamera.matrixWorld.clone();
+
+                    var origin = viewCamera.position.clone();
+                    var direction = new THREE.Vector3(mouse.x, mouse.y, 0.5).applyMatrix4(inverseProj).applyMatrix4(world).sub(origin).normalize();
+
+                    raycaster.set(origin, direction);
+
+                    var intersects = raycaster.intersectObjects(array, true);
+
+                    if (intersects.length > 0) {
+                        marker = intersects[0].object.parent;
+                        scaleCameraHelper();
+                    } else {
+                        downscaleCameraHelper();
+                    }
+                }
+
+                function scaleCameraHelper() {
+                    if(marker.scale.x < 2){
+                        marker.scale.addScalar(0.5);
+                        markerMaterials[marker.name].linewidth += 3;
+                        marker.updateMatrixWorld();
+                        view.notifyChange();
+                        requestAnimationFrame(scaleCameraHelper);
+                    }
+                }
+
+                function downscaleCameraHelper() {
+                    if(marker.scale.x > 1){
+                        marker.scale.addScalar(-0.5);
+                        markerMaterials[marker.name].linewidth -= 3;
+                        marker.updateMatrixWorld();
+                        view.notifyChange();
+                        requestAnimationFrame(downscaleCameraHelper);
+                    }
+                }
 
                 /* Rendering ----------------------------------------- */
                 view.render = function render(){
@@ -217,7 +287,7 @@
 
                 // Texture Camera
                 var textureGUI = gui.addFolder('Historical Camera');
-                textureGUI.opacity = textureGUI.add(multipleTextureMaterial, 'opacity', 0, 1);
+                textureGUI.opacity = textureGUI.add(view.getLayers()[2], 'opacity', 0, 0.99);
 
                 // Background 
                 function updateElevationFromGUI(value) {
@@ -258,7 +328,6 @@
                 interpolateCameraGlobe(timestamp);
                 multipleTextureMaterial.updateCamera(textureCamera);
                 gui.updateGUI();
-                //multipleTextureMaterial.transparent = true;
                 if(!globeRendering) view.notifyChange(true);
                 requestAnimationFrame(animate);
             }

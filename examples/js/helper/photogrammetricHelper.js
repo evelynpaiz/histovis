@@ -14,14 +14,12 @@ var composer, scenePass;
 
 var mesh;
 
-var basicMaterial, wireMaterial, textureMaterial, multipleTextureMaterial, viewMaterials = {};
-var textureMaterialUniforms, multipleTextureMaterialUniforms, viewMaterialUniforms, sceneMaterialUniforms;
+var basicMaterial, wireMaterial, textureMaterial, multipleTextureMaterial, viewMaterials = {}, markerMaterials = {};
+var textureMaterialUniforms, multipleTextureMaterialUniforms, viewMaterialUniforms, sceneMaterialUniforms, markerMaterialUniforms;
 
 var textureLoader = new THREE.TextureLoader();
 const uvTexture = textureLoader.load('data/uv.jpg');
 var textures = {}, images = {};
-
-var textureTHREE, spriteTHREE;
 
 var params = {
     collection: undefined,
@@ -40,7 +38,7 @@ var clusters = new Clustering();
 /* Materials ----------------------------------------- */
 function initBasicMaterial(){
     return new THREE.MeshBasicMaterial({
-        color: 0xffcc66,
+        color: 0xf5f5f5,
         side: THREE.DoubleSide
     });
 }
@@ -123,6 +121,16 @@ function initSceneMaterialUniforms(vs, fs, material) {
     return uniforms;
 }
 
+function initMarkerMaterialUniforms() {
+    var uniforms = {
+        color: 0x4080ff,
+        linewidth: 3,       // in pixels
+        dashed: false
+    };
+
+    return uniforms;
+}
+
 /* Environment --------------------------------------- */
 function initBackgroundSphere(material) {
     var sphere = new THREE.SphereBufferGeometry(-1, 32, 32);
@@ -161,13 +169,33 @@ function cameraHelper(camera) {
     {
         var vertices = v;
         var indices = [0, 1, 2,  0, 2, 3,  0, 3, 4,  0, 4, 1];
+
         var geometry = new THREE.BufferGeometry();
         geometry.setIndex(indices);
         geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+        markerMaterials[camera.name] = new LineMaterial(markerMaterialUniforms);
+        markerMaterials[camera.name].resolution.set(window.innerWidth, window.innerHeight);
+        //markerMaterials[camera.name].color.set(Math.random()*0xffffff);
+
+        var edges = new THREE.EdgesGeometry(geometry);
+        var lines = new LineSegmentsGeometry().setPositions(edges.attributes.position.array);
+
+        var line = new LineSegments2(lines, markerMaterials[camera.name]);
+        line.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
+        group.add(line);
+
+        /*
+        var geometry = new THREE.BufferGeometry();
+        geometry.setIndex(indices);
+        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
         var mesh = new THREE.Mesh(geometry, wireMaterial);
         mesh.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
         group.add(mesh);
+        */
     }
+    /*
     // place the image plane
     {
         viewMaterials[camera.name] = new OrientedImageMaterial(viewMaterialUniforms);
@@ -187,10 +215,12 @@ function cameraHelper(camera) {
         mesh.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
         group.add(mesh);
     }
+    */
     // place a sphere at the camera center
     {
-        var geometry = new THREE.SphereBufferGeometry(0.03, 8, 8);
-        group.add(new THREE.Mesh( geometry, basicMaterial));
+        var geometry = new THREE.SphereBufferGeometry(3, 8, 8);
+        var mesh = new THREE.Mesh(geometry, basicMaterial);
+        group.add(mesh);
     }
     return group;
 }
@@ -349,9 +379,11 @@ function handleCamera(camera, name){
     camera.near = 0.1;
     camera.setDistortionRadius();
     camera.updateProjectionMatrix();
+
     var helper = cameraHelper(camera);
-    helper.name = "helper";
+    helper.name = camera.name;
     camera.add(helper);
+
     camera.updateMatrixWorld();
 
     cameras.add(camera);
@@ -455,69 +487,6 @@ function setRadius(material, camera) {
     material.uvDistortion.R.w = params.distortion.rmax*params.distortion.rmax*material.distortion.r2img;
 }
 
-function setTarget(camera) {
-    var coord = new itowns.Coordinates('EPSG:4978', camera.position.x, camera.position.y, camera.position.z);
-    viewCamera.up.copy(coord.geodesicNormal);
-
-    var center = new THREE.Vector3( 0, 0, -1).unproject(camera);
-    var targetDir = new THREE.Vector3( 0, 0, 1).unproject(camera).sub(center).normalize();  // target
-
-    viewCamera.lookAt(camera.position.clone().add(targetDir));
-    viewCamera.updateProjectionMatrix();
-
-    /*
-    // Center and four corners of the far plane from the camera (normalized)
-    var direction = [];
-    var center = new THREE.Vector3(  0,  0, -1).unproject(camera);
-
-    direction.push(new THREE.Vector3(  0,  0,  1).unproject(camera).sub(center).normalize());  // target
-
-    direction.push(new THREE.Vector3( -1, -1,  1).unproject(camera).sub(center).normalize());  // left bottom
-    direction.push(new THREE.Vector3( -1,  1,  1).unproject(camera).sub(center).normalize());  // left top
-    direction.push(new THREE.Vector3(  1,  1,  1).unproject(camera).sub(center).normalize());  // right top
-    direction.push(new THREE.Vector3(  1, -1,  1).unproject(camera).sub(center).normalize());  // right bottom
-
-    var ray = new THREE.Raycaster();
-    var projectedPoints = [];
-
-    // Picks their projected position in the world
-    direction.forEach(dir => {
-        // Creates a ray with camera as origin and the specific direction
-        ray.set(camera.position.clone(), dir);
-        var rayIntersects = ray.intersectObjects([worldPlane, backgroundSphere], true);
-        var firstIntersect = rayIntersects[0].point || null;
-
-        var geometry = new THREE.SphereBufferGeometry(-1, 32, 32);
-        var sphere = new THREE.Mesh(geometry, basicMaterial);
-        sphere.position.copy(firstIntersect);
-        sphere.scale.set(1000, 1000, 1000);
-        view.scene.add(sphere);
-
-        projectedPoints.push(firstIntersect);
-    });
-
-    var coord = new itowns.Coordinates('EPSG:4978',camera.position.x, camera.position.y, camera.position.z);
-    viewCamera.up.copy(coord.geodesicNormal);
-
-    var coord2 = itowns.CameraUtils.getTransformCameraLookingAtTarget(view, camera).coord.as('EPSG:4978');
-
-    //var distance = new THREE.Vector3().subVectors(camera.position, coord2.toVector3().clone()).length();
-    // apply transformation - matrix, euler rotation, or quaternion?
-    //var normal = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-    // instead of quaternion, you could also use .applyEuler(camera.rotation);
-    // or if you used matrix, extract quaternion from matrix
-    //viewCamera.lookAt(new THREE.Vector3().add(camera.position).add(normal.setLength(distance)));
-
-    var vect = new THREE.Vector3( 0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position);
-
-    viewCamera.lookAt(vect);
-
-    viewCamera.updateProjectionMatrix();
-    console.log(projectedPoints[0]);
-    console.log(coord2.toVector3().clone());
-    */
-}
-
 /* Update -------------------------------------------- */
 function updateEnvironment() {
     backgroundSphere.scale.set(params.environment.radius, params.environment.radius, params.environment.radius);
@@ -556,15 +525,17 @@ function interpolateCamera(timestamp) {
         if (timestamp < nextCamera.timestamp) {
             const t = 0.001 * (timestamp - prevCamera.timestamp) / params.interpolation.duration;
             viewCamera.set(prevCamera).lerp(nextCamera, t);
-            showMaterials(false);
+            //showMaterials(false);
         } else {
+            getCamera(nextCamera).visible = false;
+            if(nextCamera.name !== prevCamera.name) getCamera(prevCamera).visible = true;
             viewCamera.setDefinetly(nextCamera);
             prevCamera.timestamp = undefined;
             nextCamera.timestamp = undefined;
             
             if(controls) controls.reset(true);
 
-            showMaterials(true);
+            //showMaterials(true);
         }
         viewCamera.updateProjectionMatrix(); 
     }

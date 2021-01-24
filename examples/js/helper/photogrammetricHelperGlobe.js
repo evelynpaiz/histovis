@@ -94,6 +94,8 @@ function initBuildings(material) {
         overrideAltitudeInToZero: true,
         source: wfsBuildingSource
     });
+    // Change opacity so the layer mantains the material transparent
+    wfsBuildingLayer.opacity = 0.99;
 
     view.addLayer(wfsBuildingLayer);
 
