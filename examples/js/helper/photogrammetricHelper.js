@@ -433,9 +433,15 @@ function handleMesh(name, material){
 }
 
 /* Gets ---------------------------------------------- */
-function getCamera(camera, delta = 0){
+function getCamera(camera, delta = 0) {
     const array = cameras.children;
     const index = array.findIndex(cam => cam.name == camera.name);
+    return array[(index + delta + array.length) % array.length];
+}
+
+function getCameraByName(name, delta = 0) {
+    const array = cameras.children;
+    const index = array.findIndex(cam => cam.name == name);
     return array[(index + delta + array.length) % array.length];
 }
 

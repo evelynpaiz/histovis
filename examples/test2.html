@@ -221,8 +221,10 @@
                     if (intersects.length > 0) {
                         marker = intersects[0].object.parent;
                         scaleCameraHelper();
+                        multipleTextureMaterial.setCamera(getCameraByName(marker.name));
                     } else {
                         downscaleCameraHelper();
+                        multipleTextureMaterial.removeCamera(getCameraByName(marker.name));
                     }
                 }
 
