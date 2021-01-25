@@ -246,13 +246,21 @@
                     view.notifyChange(view.camera.camera3D);
                 };
 
-                var viewGUI = gui.addFolder('View Camera'); // View
-                viewGUI.visible = viewGUI.add(cameras, 'visible');
+                var viewGUI = gui.addFolder('View Camera'); 
                 viewGUI.zoom = viewGUI.add(viewCamera, 'zoom', 0.1, 2.0).onChange(updateViewCameraFromGUI);
 
                 // Texture Camera
                 var textureGUI = gui.addFolder('Historical Camera');
                 textureGUI.opacity = textureGUI.add(view.getLayers()[2], 'opacity', 0, 0.99);
+
+                // Viewpoint Markers
+                function updateViewpointMarkers(value) {
+                    cameras.visible = value;
+                    multipleTextureMaterial.border.visible = value;
+                }
+
+                var markerGUI = gui.addFolder('Viewpoint Markers');
+                markerGUI.visible = markerGUI.add(cameras, 'visible').onChange(updateViewpointMarkers);
 
                 // Background 
                 function updateElevationFromGUI(value) {
