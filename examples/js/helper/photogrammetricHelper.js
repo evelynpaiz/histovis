@@ -11,8 +11,7 @@ var app, renderer, scene, cameras, controls;
 var environment, backgroundSphere, worldPlane;
 
 var composer, scenePass;
-
-var mesh;
+var raycaster, mouse, marker;
 
 var basicMaterial, wireMaterial, textureMaterial, multipleTextureMaterial, viewMaterials = {}, markerMaterials = {};
 var textureMaterialUniforms, multipleTextureMaterialUniforms, viewMaterialUniforms, sceneMaterialUniforms, markerMaterialUniforms;
@@ -27,7 +26,8 @@ var params = {
     environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
     distortion: {rmax: 1.},
     clustering: {apply: false, images: 5, clusters: 3},
-    interpolation: {duration: 3.}
+    interpolation: {duration: 3.},
+    mouse: {timer: 0, delay: 200, prevent: false}
 };
 
 var insets = [];
@@ -225,6 +225,24 @@ function cameraHelper(camera) {
     return group;
 }
 
+function scaleCameraHelper() {
+    if(marker.scale.x < 2){
+        marker.scale.addScalar(0.5);
+        markerMaterials[marker.name].linewidth += 3;
+        marker.updateMatrixWorld();
+        requestAnimationFrame(scaleCameraHelper);
+    }
+}
+
+function downscaleCameraHelper() {
+    if(marker.scale.x > 1){
+        marker.scale.addScalar(-0.5);
+        markerMaterials[marker.name].linewidth -= 3;
+        marker.updateMatrixWorld();
+        requestAnimationFrame(downscaleCameraHelper);
+    }
+}
+
 /* Callbacks ----------------------------------------- */
 function onWindowResize() {
     const width = window.innerWidth;
@@ -250,6 +268,86 @@ function onDocumentKeyDown(event) {
         default : console.log(event.key, 'is not supported');
     }
 }
+
+function onDocumentMouseMove(event) {
+    var intersects = getIntersectedObject(event);                    
+
+    if (intersects.length > 0) {
+        marker = intersects[0].object.parent;
+        scaleCameraHelper();
+        if(!marker.userData.selected){
+            var camera = getCameraByName(marker.name);
+            if(camera) multipleTextureMaterial.setCamera(camera);
+        }
+    } else {
+        downscaleCameraHelper();
+        if(!marker.userData.selected){
+            var camera = getCameraByName(marker.name);
+            if(camera) multipleTextureMaterial.removeCamera(camera);
+        }
+    }
+}
+
+function onDocumentMouseDblClick(event) {
+    var intersects = getIntersectedObject(event);     
+    
+    if (intersects.length > 0) {
+        marker = intersects[0].object.parent;
+        var camera = getCameraByName(marker.name);   
+        if(camera) setCamera(camera);
+    }
+}
+
+function onDocumentMouseClick(event) {
+    var intersects = getIntersectedObject(event);
+
+    if (intersects.length > 0) {
+        marker = intersects[0].object.parent;
+        // Select the image if it has not been projected
+        var camera = getCameraByName(marker.name);   
+        if(camera) {
+            if(!marker.userData.selected) {
+                marker.userData.selected = true;
+                multipleTextureMaterial.setCamera(camera);
+            } else {
+                marker.userData.selected = false;
+                multipleTextureMaterial.removeCamera(camera);
+            }
+        }
+    }
+}
+
+/* Mouse --------------------------------------------- */
+function saveMouseCoords(event) {
+    // calculate mouse position in normalized device coordinates
+    // (-1 to +1) for both components
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+}
+
+function getIntersectedObject(event) {
+    // calculate mouse position
+    saveMouseCoords(event);
+
+    // Camera markers except the texture camera
+    var array = cameras.children.map(camera => {return camera.children[0]}); // camera helpers
+    const index = array.findIndex(helper => helper.name == textureCamera.name);
+    if(index > -1) array.splice(index, 1);
+    array = array.map(helper => {return helper.children[1]}); // center point of the pyramid
+
+    // Equal to:
+    //var direction = new THREE.vector3(mouse.x, mouse.y, 0.5).unproject(viewCamera).sub(origin).normalize();
+    //this.applyMatrix4( camera.projectionMatrixInverse ).applyMatrix4( camera.matrixWorld );
+    var inverseProj = new THREE.Matrix4().getInverse(viewCamera.projectionMatrix);
+    var world = viewCamera.matrixWorld.clone();
+
+    var origin = viewCamera.position.clone();
+    var direction = new THREE.Vector3(mouse.x, mouse.y, 0.5).applyMatrix4(inverseProj).applyMatrix4(world).sub(origin).normalize();
+
+    raycaster.set(origin, direction);
+
+    return raycaster.intersectObjects(array, true);
+};
 
 /* Loading ------------------------------------------- */
 function loadOrientation(url, source, name) {
@@ -382,6 +480,7 @@ function handleCamera(camera, name){
 
     var helper = cameraHelper(camera);
     helper.name = camera.name;
+    helper.userData.selected = false;
     camera.add(helper);
 
     camera.updateMatrixWorld();
@@ -468,6 +567,7 @@ function setView(camera) {
 function setTexture(camera) {
     if (!camera) return;
     console.log('Texture:', camera.name);
+    camera.children[0].userData.selected = true;
     textureCamera.copy(camera);
     if(textureMaterial) {
         setMaterial(textureMaterial, camera);
@@ -524,6 +624,7 @@ function showMaterials(state) {
 /* Movement ------------------------------------------ */
 function interpolateCamera(timestamp) {
     if (prevCamera.timestamp !== undefined) {
+        getCamera(nextCamera).visible = false;
         if (prevCamera.timestamp == 0) {
             prevCamera.timestamp = timestamp;
             nextCamera.timestamp = prevCamera.timestamp + 1000 * params.interpolation.duration;
@@ -533,7 +634,6 @@ function interpolateCamera(timestamp) {
             viewCamera.set(prevCamera).lerp(nextCamera, t);
             //showMaterials(false);
         } else {
-            getCamera(nextCamera).visible = false;
             if(nextCamera.name !== prevCamera.name) getCamera(prevCamera).visible = true;
             viewCamera.setDefinetly(nextCamera);
             prevCamera.timestamp = undefined;
@@ -555,7 +655,8 @@ function basicClean() {
         environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
         distortion: {rmax: 1.},
         clustering: {apply: false, images: 5, clusters: 3},
-        interpolation: {duration: 3.}
+        interpolation: {duration: 3.},
+        mouse: {timer: 0, delay: 200, prevent: false}
     };
 
     const camera = new PhotogrammetricCamera();
