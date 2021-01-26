@@ -25,13 +25,9 @@ var params = {
     cameras: {size: 10000},
     environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
     distortion: {rmax: 1.},
-    clustering: {apply: false, images: 5, clusters: 3},
     interpolation: {duration: 3.},
     mouse: {timer: 0, delay: 200, prevent: false}
 };
-
-var insets = [];
-var clusters = new Clustering();
 
 /* ----------------------- Functions --------------------- */
 
@@ -365,7 +361,12 @@ function loadImage(url, source, name) {
         const match = url.match(/([^\/]*)\.[\w\d]/i);
         name = match ? match[1] : url;
     }
-    images[name] = url;
+    // Save the url of the image
+    if (typeof images[name] == "undefined") {
+        images[name] = new HistoricalImage();
+    } 
+    images[name].url = url;
+    
     return source.open(url, 'dataURL')
     .then(parseImage(source))
     .then(handleImage(name));
@@ -483,6 +484,11 @@ function handleCamera(camera, name){
     helper.userData.selected = false;
     camera.add(helper);
 
+    if (typeof images[name] == "undefined") {
+        images[name] = new HistoricalImage();
+    } 
+    images[name].setCamera(camera, [worldPlane, backgroundSphere]); 
+    
     camera.updateMatrixWorld();
 
     cameras.add(camera);
@@ -654,7 +660,6 @@ function basicClean() {
         cameras: {size: 10000},
         environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
         distortion: {rmax: 1.},
-        clustering: {apply: false, images: 5, clusters: 3},
         interpolation: {duration: 3.},
         mouse: {timer: 0, delay: 200, prevent: false}
     };

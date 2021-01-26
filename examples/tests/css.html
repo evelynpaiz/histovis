@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>HistoVis - Multiple Image Visualization</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link rel="stylesheet" href="style/w3.css">
+        <link rel="stylesheet" href="style/style.css">
+        <link rel="stylesheet" href="style/menu.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+        <link rel="shortcut icon" href="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.ico">
+    </head>
+    <body class="w3-light-gray">
+        <!-- Sidebar/menu -->
+        <nav id="mySidebar" class="w3-sidebar w3-light-gray w3-card-2 w3-animate-left">
+            <div class="w3-bar w3-dark-grey">
+                <span class="w3-bar-item w3-padding-16">
+                    Content
+                </span>
+                <button onclick="closeMenu()" class="w3-bar-item w3-button w3-right w3-padding-16" title="close sidebar">×</button>
+            </div>
+
+            <div class="w3-bar-block w3-light-gray">
+                <a class="w3-bar-item w3-button w3-hover-pink" href="index.html">Home</a>
+                <div>
+                    <button class="w3-button w3-block w3-left-align w3-hover-green w3-green" onclick="myCollectionsFunc()">
+                        Image Collections <i class="fa fa-caret-down"></i>
+                    </button>
+                    <div id="myCollections" class="w3-small w3-hide w3-show"></div>
+                </div>
+
+                <div id="myMenu" class="w3-dropdown-hover">
+                    <a class="w3-button w3-hover-green" href="javascript:void(0)">Menu Visualization <i class="fa fa-caret-down"></i></a>
+                    <div class="w3-dropdown-content w3-bar-block w3-small w3-card w3-light-gray">
+                        <a href="javascript:closeImageVis();" class="w3-bar-item w3-button">None</a>
+                        <a href="javascript:openSlider();" class="w3-bar-item w3-button">Slider</a>
+                        <a href="javascript:openCluster();" class="w3-bar-item w3-button">Clusters</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Open Menu -->
+        <span id="openNav" title="open sidebar" class="w3-button w3-transparent w3-display-topleft w3-large w3-hover" onclick="openMenu()">☰</span>
+
+        <!-- !Page Content -->
+        <div id="myContent" class="w3-display-container w3-light-gray w3-card">
+            <!-- !Canvas -->
+            <iframe id="myRenderer" class = "w3-card w3-light-gray w3-margin-bottom" src="css-renderer.html">
+            </iframe>
+
+            <div id="myCluster"></div>
+        </div>
+
+        <!-- Image slider -->
+        <div id="mySlider" class="w3-container w3-padding w3-light-gray w3-card w3-animate-bottom">  
+            <div id="rowSlider" class="w3-row-padding"></div>
+        </div>
+
+            <!--
+            <div id="leftCluster" class="w3-display-left">
+
+                <div class="w3-padding-small w3-col w3-center" style="width:150px;flex-shrink:0;">
+                    <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border-large w3-border-black w3-round w3-hover-border-blue" style="height:100px;cursor:pointer;">
+                </div>
+
+                <div class="w3-padding-small w3-col w3-center" style="width:150px;flex-shrink:0;">
+                    <div class="w3-black w3-round w3-border w3-border-black" style="display:flex;">
+                        <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:44.8px;cursor:pointer;">
+                        <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:44.8px;cursor:pointer;">
+                    </div>
+                </div>
+
+                <div class="w3-padding-small w3-col w3-center" style="width:150px;flex-shrink:0;">
+                    <div class="w3-black w3-round w3-border w3-border-black" style="display:flex;flex-direction:column;">
+                        <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:96px;">
+                        <div class="w3-col w3-round" style="overflow-x:auto;display:flex;">
+                            <div class="w3-small w3-round w3-padding-small w3-black">3</div>
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:25px;cursor:pointer;">
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:25px;cursor:pointer;">
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:25px;cursor:pointer;">
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:25px;cursor:pointer;">
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:25px;cursor:pointer;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="rightCluster" class="w3-display-right"></div>
+            <div id="topCluster" class="w3-display-topmiddle">
+
+                <div class="w3-padding-small w3-col w3-center" style="width:150px;flex-shrink:0;">
+                    <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border-large w3-border-black w3-round w3-hover-border-blue" style="height:100px;cursor:pointer;">
+                </div>
+
+                <div class="w3-padding-small w3-col w3-center" style="width:80px;flex-shrink:0;">
+                    <div class="w3-black w3-round w3-border w3-border-black" style="display:flex;flex-direction:column;">
+                        <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:47.5px;cursor:pointer;">
+                        <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:47.5px;cursor:pointer;">
+                    </div>
+                </div>
+
+                <div class="w3-padding-small w3-col w3-center" style="width:185px;flex-shrink:0;">
+                    <div class="w3-black w3-round w3-border w3-border-black" style="display:flex;height:100px;">
+                        <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:96px;max-width:130px;cursor:pointer;">
+                        <div class="w3-col w3-round" style="height:96px;overflow-y:auto;display:flex;flex-direction:column;">
+                            <div class="w3-small w3-round w3-padding-small w3-black">3</div>
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:25px;cursor:pointer;">
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:25px;cursor:pointer;">
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:25px;cursor:pointer;">
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:25px;cursor:pointer;">
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/viabon/img-low/100_0009_0001.JPG" id="100_0009_0001-cluster" title="image: 100_0009_0001" class="w3-image w3-border w3-border-black w3-round w3-hover-border-blue" style="height:25px;cursor:pointer;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="bottomCluster" class="w3-display-bottommiddle"></div>
+            -->
+
+        <script src="js/web/menu.js"></script>
+    </body>
+</html>

@@ -19,9 +19,10 @@
 
 #myRenderer {
     z-index: 2;
-    height: 100%;
-    width: 100%;
-    top: 0px;
+    height: calc(100% - 180px);
+    width: calc(100% - 220px);
+    left: 110px;
+    top: 90px;
     position: absolute;
     border-width: 0;
     outline: none;
@@ -47,8 +48,8 @@
 #myContent {
     z-index: 1;
     height:calc(100% - 20px);
-    width:calc(100% - 220px);
-    margin-left:210px;
+    width:calc(100% - 20px);
+    margin-left:10px;
     position:fixed;
     top:10px;
     transition: all 0.4s ease 0s;
