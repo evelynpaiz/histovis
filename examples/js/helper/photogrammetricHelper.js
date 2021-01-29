@@ -119,8 +119,8 @@ function initSceneMaterialUniforms(vs, fs, material) {
 
 function initMarkerMaterialUniforms() {
     var uniforms = {
-        color: 0x4080ff,
-        linewidth: 3,       // in pixels
+        color: 0x2196F3,
+        linewidth: 2,       // in pixels
         dashed: false
     };
 
@@ -222,18 +222,18 @@ function cameraHelper(camera) {
 }
 
 function scaleCameraHelper() {
-    if(marker.scale.x < 2){
+    if(marker && markerMaterials[marker.name] && marker.scale.x < 2){
         marker.scale.addScalar(0.5);
-        markerMaterials[marker.name].linewidth += 3;
+        markerMaterials[marker.name].linewidth += 1;
         marker.updateMatrixWorld();
         requestAnimationFrame(scaleCameraHelper);
     }
 }
 
 function downscaleCameraHelper() {
-    if(marker.scale.x > 1){
+    if(marker && markerMaterials[marker.name] && marker.scale.x > 1){
         marker.scale.addScalar(-0.5);
-        markerMaterials[marker.name].linewidth -= 3;
+        markerMaterials[marker.name].linewidth -= 1;
         marker.updateMatrixWorld();
         requestAnimationFrame(downscaleCameraHelper);
     }
@@ -281,16 +281,7 @@ function onDocumentMouseMove(event) {
             var camera = getCameraByName(marker.name);
             if(camera) multipleTextureMaterial.removeCamera(camera);
         }
-    }
-}
-
-function onDocumentMouseDblClick(event) {
-    var intersects = getIntersectedObject(event);     
-    
-    if (intersects.length > 0) {
-        marker = intersects[0].object.parent;
-        var camera = getCameraByName(marker.name);   
-        if(camera) setCamera(camera);
+        marker = new THREE.Group();
     }
 }
 
@@ -310,6 +301,16 @@ function onDocumentMouseClick(event) {
                 multipleTextureMaterial.removeCamera(camera);
             }
         }
+    }
+}
+
+function onDocumentMouseDblClick(event) {
+    var intersects = getIntersectedObject(event);     
+    
+    if (intersects.length > 0) {
+        marker = intersects[0].object.parent;
+        var camera = getCameraByName(marker.name);   
+        if(camera) setCamera(camera);
     }
 }
 
@@ -365,7 +366,7 @@ function loadImage(url, source, name) {
     if (typeof images[name] == "undefined") {
         images[name] = new HistoricalImage();
     } 
-    images[name].url = url;
+    images[name].url = server + params.collection + url;
     
     return source.open(url, 'dataURL')
     .then(parseImage(source))
@@ -489,6 +490,7 @@ function handleCamera(camera, name){
     } 
     images[name].setCamera(camera, [worldPlane, backgroundSphere]); 
     
+
     camera.updateMatrixWorld();
 
     cameras.add(camera);

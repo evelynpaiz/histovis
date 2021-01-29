@@ -58,13 +58,12 @@
 #myCluster {
     height: 100%;
     width: 100%;
-    display: none;
     transition: all 0.4s ease 0s;
 }
 
 .cluster {
     position: absolute;
-    transition: all 2s ease 0s;
+    transition: all 0.1s ease 0s;
 }
 
 #leftCluster, #rightCluster {

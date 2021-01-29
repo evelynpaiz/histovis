@@ -7,3 +7,4 @@ export { default as Inset } from './clusters/Inset';
 
 export { default as HistoricalImage } from './clusters/HistoricalImage';
 export { default as HierarchicalCluster } from './clusters/Cluster';
+export { default as Border } from './clusters/Border';

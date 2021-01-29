@@ -65,6 +65,8 @@
             var HistoricalImage = histovis.HistoricalImage;
             // Clustering
             var HierarchicalCluster = histovis.HierarchicalCluster;
+            // Photo gallery
+            var Border = histovis.Border;
         </script>
 
         <script src="js/helper/photogrammetricHelper.js"></script>
@@ -113,6 +115,8 @@
                     multipleVS, multipleFS, uvTexture, view.mainLoop.gfxEngine.renderer);
                 markerMaterialUniforms = initMarkerMaterialUniforms();
 
+                multipleTextureMaterial.border.linewidth = 3;
+
                 // Environment
                 environment = new THREE.Group();
                 backgroundSphere = initBackgroundSphere(multipleTextureMaterial);
@@ -126,6 +130,12 @@
 
                 // Renderer
                 renderer = view.mainLoop.gfxEngine.renderer;
+
+                // 2D canvas
+                var canvas = renderer.getContext().canvas;
+
+                // Border
+                border = new Border(canvas.width, canvas.height);
 
                 // Show the materials
                 showMaterials(true);
