@@ -238,7 +238,7 @@
                     basicClean();
 
                     cluster = new HierarchicalCluster();
-                    params.clustering = {apply: false, images: 5, clusters: 3};
+                    params.clustering = {active: false, images: 0, clusters: 0};
                 }
             }
 
@@ -270,13 +270,26 @@
                 textureGUI.opacity = textureGUI.add(view.getLayers()[2], 'opacity', 0, 0.99);
 
                 // Viewpoint Markers
-                function updateViewpointMarkers(value) {
+                function updateViewpointMarkersFromGUI(value) {
                     cameras.visible = value;
                     multipleTextureMaterial.border.visible = value;
                 }
 
                 var markerGUI = gui.addFolder('Viewpoint Markers');
-                markerGUI.visible = markerGUI.add(cameras, 'visible').onChange(updateViewpointMarkers);
+                markerGUI.visible = markerGUI.add(cameras, 'visible').onChange(updateViewpointMarkersFromGUI);
+
+                // Clustering options
+                function updateClusterFromGUI(value) {
+                    params.clustering.clusters = Math.floor(value);
+                }
+
+                function updateClusterImageFromGUI(value) {
+                    params.clustering.images = Math.floor(value);
+                }
+
+                var clusteringGUI = gui.addFolder('Clustering');
+                clusteringGUI.images = clusteringGUI.add(params.clustering, 'images', 0, 0).onChange(updateClusterImageFromGUI);
+                clusteringGUI.clusters = clusteringGUI.add(params.clustering, 'clusters', 0, 0).onChange(updateClusterFromGUI);
 
                 // Background 
                 function updateElevationFromGUI(value) {
@@ -302,18 +315,23 @@
                     backgroundGUI.sphere.setValue(environment.children[0].visible);
                     backgroundGUI.plane.setValue(environment.children[1].visible);
                     backgroundGUI.elevation.setValue(params.environment.elevation);
+                    
                     var name = textureCamera.name;
                     if (name.length > 0) {
                         if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
                         textureGUI.name = 'Hist: ' + name;
-                    }     
+                    }
+
+                    clusteringGUI.images.max(cameras.children.length);
+                    clusteringGUI.images.setValue(Math.floor(params.clustering.images));
+
+                    clusteringGUI.clusters.max(params.clustering.images);
+                    clusteringGUI.clusters.setValue(Math.floor(params.clustering.clusters));
                 }
                 return gui;
             }
 
             function animate(timestamp) {
-                params.clustering.images = cameras.children.length;
-                params.clustering.clusters = cameras.children.length;
                 interpolateCameraGlobe(timestamp);
                 updateCluster(viewCamera);
                 gui.updateGUI();

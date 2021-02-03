@@ -277,7 +277,7 @@ function onDocumentMouseMove(event) {
         }
     } else {
         downscaleCameraHelper();
-        if(!marker.userData.selected){
+        if(marker.name != "" && !marker.userData.selected){
             var camera = getCameraByName(marker.name);
             if(camera) multipleTextureMaterial.removeCamera(camera);
         }

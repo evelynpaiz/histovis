@@ -62,8 +62,21 @@
 }
 
 .cluster {
+    opacity: 1;
     position: absolute;
     transition: all 0.1s ease 0s;
+    z-index: 2;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.gallery-scroll::-webkit-scrollbar {
+    display: none;
+}
+  
+  /* Hide scrollbar for IE, Edge and Firefox */
+.gallery-scroll {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
 }
 
 #leftCluster, #rightCluster {
