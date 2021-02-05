@@ -29,6 +29,8 @@ var params = {
     mouse: {timer: 0, delay: 200, prevent: false}
 };
 
+var dates = {}, names = [];
+
 /* ----------------------- Functions --------------------- */
 
 /* Materials ----------------------------------------- */
@@ -180,38 +182,7 @@ function cameraHelper(camera) {
         var line = new LineSegments2(lines, markerMaterials[camera.name]);
         line.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
         group.add(line);
-
-        /*
-        var geometry = new THREE.BufferGeometry();
-        geometry.setIndex(indices);
-        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-
-        var mesh = new THREE.Mesh(geometry, wireMaterial);
-        mesh.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
-        group.add(mesh);
-        */
     }
-    /*
-    // place the image plane
-    {
-        viewMaterials[camera.name] = new OrientedImageMaterial(viewMaterialUniforms);
-        setMaterial(viewMaterials[camera.name], camera);
-        viewMaterials[camera.name].debug.showImage = true;
-
-        var vertices = v.slice(3);
-        var uvs = new Float32Array([ 0., 0.,  0., 1.,  1., 1.,  1., 0.]);
-        var visibility = new Float32Array(geometry.attributes.position.count);
-        var indices = [0, 2, 1,  0, 3, 2];
-        var geometry = new THREE.BufferGeometry();
-        geometry.setIndex(indices);
-        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-        geometry.setAttribute('uv', new THREE.BufferAttribute( uvs, 2 ));
-        geometry.setAttribute('visibility', new THREE.BufferAttribute(visibility, 1));
-        var mesh = new THREE.Mesh(geometry, viewMaterials[camera.name]);
-        mesh.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
-        group.add(mesh);
-    }
-    */
     // place a sphere at the camera center
     {
         var geometry = new THREE.SphereBufferGeometry(3, 8, 8);
@@ -352,6 +323,11 @@ function loadOrientation(url, source, name) {
         const match = url.match(/Orientation-(.*)\.[\w\d]*\.xml/i);
         name = match ? match[1] : url;
     }
+
+    if(!names.includes(name)) names.push(name);
+    const year = name.match(/[0-9]{4}/);
+    if(year) dates[name] = parseInt(year[0]);
+
     return source.open(url, 'text')
         .then(parseOrientation(source))
         .then(handleOrientation(name));
@@ -367,6 +343,10 @@ function loadImage(url, source, name) {
         images[name] = new HistoricalImage();
     } 
     images[name].url = server + params.collection + url;
+
+    if(!names.includes(name)) names.push(name);
+    const year = name.match(/[0-9]{4}/);
+    if(year) dates[name] = parseInt(year[0]);
     
     return source.open(url, 'dataURL')
     .then(parseImage(source))
@@ -541,15 +521,15 @@ function handleMesh(name, material){
 
 /* Gets ---------------------------------------------- */
 function getCamera(camera, delta = 0) {
-    const array = cameras.children;
+    const array = cameras.children.filter(cam => names.includes(cam.name));
     const index = array.findIndex(cam => cam.name == camera.name);
-    return array[(index + delta + array.length) % array.length];
+    if(index > -1) return array[(index + delta + array.length) % array.length];
 }
 
 function getCameraByName(name, delta = 0) {
-    const array = cameras.children;
+    const array = cameras.children.filter(cam => names.includes(cam.name));
     const index = array.findIndex(cam => cam.name == name);
-    return array[(index + delta + array.length) % array.length];
+    if(index > -1) return array[(index + delta + array.length) % array.length];
 }
 
 function getMaxTextureUnitsCount(renderer) {
@@ -570,6 +550,9 @@ function setView(camera) {
     nextCamera.near = 0.1;
     nextCamera.far = params.environment.radius+params.environment.epsilon;
     nextCamera.updateProjectionMatrix();
+
+    camera.visible = false;
+    if(getCamera(viewCamera) && nextCamera.name !== prevCamera.name) getCamera(viewCamera).visible = true;
 }
 
 function setTexture(camera) {
@@ -632,7 +615,6 @@ function showMaterials(state) {
 /* Movement ------------------------------------------ */
 function interpolateCamera(timestamp) {
     if (prevCamera.timestamp !== undefined) {
-        getCamera(nextCamera).visible = false;
         if (prevCamera.timestamp == 0) {
             prevCamera.timestamp = timestamp;
             nextCamera.timestamp = prevCamera.timestamp + 1000 * params.interpolation.duration;
@@ -642,7 +624,6 @@ function interpolateCamera(timestamp) {
             viewCamera.set(prevCamera).lerp(nextCamera, t);
             //showMaterials(false);
         } else {
-            if(nextCamera.name !== prevCamera.name) getCamera(prevCamera).visible = true;
             viewCamera.setDefinetly(nextCamera);
             prevCamera.timestamp = undefined;
             nextCamera.timestamp = undefined;
@@ -687,6 +668,7 @@ function basicClean() {
 
     Object.keys(textures).forEach(key => textures[key].dispose());
     Object.keys(images).forEach(key => delete images[key]);
+    dates = {};
     while(cameras.children.length) cameras.remove(cameras.children[0]);
 
     if(multipleTextureMaterial) multipleTextureMaterial.clean();

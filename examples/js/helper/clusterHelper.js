@@ -22,16 +22,17 @@ function updateCluster(camera) {
         var point = rayIntersects[0].point;
 
         // Compute distances
-        Object.values(images).forEach(image => image.updateDistance(point));
+        var filtered = Object.entries(images).filter(([name, value]) => names.includes(name)).map(([name, value]) => {return value});
+        filtered.forEach(image => image.updateDistance(point));
 
         // Max of all image distances
-        var maxDistanceProjection = Math.max.apply(Math, Object.values(images).map(image => image.distance));
+        var maxDistanceProjection = Math.max.apply(Math, Object.values(filtered).map(image => image.distance));
 
         // Convert the distances to weights
-        Object.values(images).forEach(image => image.normalizeDistance(maxDistanceProjection));
+        filtered.forEach(image => image.normalizeDistance(maxDistanceProjection));
 
         // Rank weights in descending order
-        var filtered = Object.values(images).sort((a,b) => (a.weight.mean < b.weight.mean) ? 1 : ((b.weight.mean < a.weight.mean) ? -1 : 0));
+        filtered = filtered.sort((a,b) => (a.weight.mean < b.weight.mean) ? 1 : ((b.weight.mean < a.weight.mean) ? -1 : 0));
         filtered = filtered.filter((i, index) => (index < params.clustering.images));
 
         // Cluster objects

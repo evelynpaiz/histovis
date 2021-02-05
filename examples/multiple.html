@@ -7,6 +7,7 @@
         <link rel="stylesheet" href="style/w3.css">
         <link rel="stylesheet" href="style/style.css">
         <link rel="stylesheet" href="style/menu.css">
+        <link rel="stylesheet" href="style/timeline.css">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
         <link rel="shortcut icon" href="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.ico">
     </head>
@@ -17,8 +18,24 @@
             <iframe id="myRenderer" class = "w3-card w3-light-gray w3-margin-bottom" src="multiple-renderer.html">
             </iframe>
 
-            <div id="myCluster">
-                <div class="w3-round w3-col w3-center w3-border-blue w3-blue cluster w3-border" style="width:110px; height:79.34782608695652px; left:1277px;top:357.5658821067914px;"><img src="https://histovis.s3.eu-west-3.amazonaws.com/collections/ign_nanterre/img-low/1946_DUR_13_0010.jpg" id="1946_DUR_13_0010" title="image: 1946_DUR_13_0010" class="w3-image w3-border w3-border-blue w3-round" style="cursor: pointer; display: block; width: 100%; height: 100%;"></div>
+            <div id="myCluster"></div>
+        </div>
+        <div id="myTimeline" class = "w3-display-container"> 
+            <div class="middle">
+                <div class="multi-range-slider">
+                    <input type="range" id="input-left">
+                    <input type="range" id="input-right">
+            
+                    <div class="slider">
+                        <div class="track"></div>
+                        <div class="range"></div>
+                        <div class="thumb left"></div>
+                        <div class="thumb right"></div>
+
+                        <div id="imagesTimeline"></div>
+                        <div id="labelTimeline"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </body>

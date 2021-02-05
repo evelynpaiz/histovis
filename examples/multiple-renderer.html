@@ -73,6 +73,7 @@
         <script src="js/helper/photogrammetricHelperGlobe.js"></script>
 
         <script src="js/helper/clusterHelper.js"></script>
+        <script src="js/web/timeline.js"></script>
 
         <script>
             /* ------------------------- Main ------------------------ */
@@ -206,6 +207,10 @@
 
                 // Event listeners
                 document.addEventListener('keydown', onDocumentKeyDown, false);
+                window.addEventListener('resize', function() {
+                    var canvas = renderer.getContext().canvas;
+                    border = new Border(canvas.width, canvas.height);
+                }, false);
 
                 document.addEventListener('mousemove', onDocumentMouseMove, false);
 
@@ -322,7 +327,7 @@
                         textureGUI.name = 'Hist: ' + name;
                     }
 
-                    clusteringGUI.images.max(cameras.children.length);
+                    clusteringGUI.images.max(Object.values(names).length);
                     clusteringGUI.images.setValue(Math.floor(params.clustering.images));
 
                     clusteringGUI.clusters.max(params.clustering.images);
@@ -335,6 +340,7 @@
                 interpolateCameraGlobe(timestamp);
                 updateCluster(viewCamera);
                 gui.updateGUI();
+                checkTimeline();
                 if(!globeRendering) view.notifyChange(true);
                 requestAnimationFrame(animate);
             }

@@ -47,7 +47,7 @@
 
 #myContent {
     z-index: 1;
-    height:calc(100% - 20px);
+    height:calc(90% - 20px);
     width:calc(100% - 20px);
     margin-left:10px;
     position:fixed;
