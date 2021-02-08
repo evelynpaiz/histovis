@@ -8,6 +8,7 @@ class HistoricalImage {
         this.projectedPoints = [];
         this.distance = Infinity; // distance in square value
         this.weight = 0.;
+        this.visible = true;
     }
 
     setCamera(camera, geometries) {

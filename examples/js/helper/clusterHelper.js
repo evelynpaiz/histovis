@@ -9,8 +9,13 @@ var border;
 
 /* Update -------------------------------------------- */
 function updateCluster(camera) {
-    var inverseProj = new THREE.Matrix4().getInverse(camera.projectionMatrix.clone());
+    var proj = camera.projectionMatrix.clone();
+    var inverseProj = new THREE.Matrix4().getInverse(proj);
     var world = camera.matrixWorld.clone();
+    var inverseWorld = new THREE.Matrix4().getInverse(world);
+
+    var frustum = new THREE.Frustum();
+    frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(proj, inverseWorld));
 
     var origin = camera.position.clone();
     var direction = new THREE.Vector3(  0,  0,  1).applyMatrix4(inverseProj).applyMatrix4(world).sub(origin).normalize();
@@ -29,7 +34,10 @@ function updateCluster(camera) {
         var maxDistanceProjection = Math.max.apply(Math, Object.values(filtered).map(image => image.distance));
 
         // Convert the distances to weights
-        filtered.forEach(image => image.normalizeDistance(maxDistanceProjection));
+        filtered.forEach(image => {
+            image.normalizeDistance(maxDistanceProjection);
+            image.visible = frustum.containsPoint(image.projectedPoints[0]);
+        });
 
         // Rank weights in descending order
         filtered = filtered.sort((a,b) => (a.weight.mean < b.weight.mean) ? 1 : ((b.weight.mean < a.weight.mean) ? -1 : 0));
@@ -76,6 +84,7 @@ function updateImageGallery(array) {
 function handleOneCluster(image, position) {
     var selected = image.camera.children[0].userData.selected;
     if(marker) selected = marker.name == image.camera.name ? marker.name == image.camera.name : selected; 
+    var visible = image.visible;
     // Check first if the image is already been displayed   
     var img = parent.document.getElementById(image.camera.name); 
 
@@ -83,6 +92,7 @@ function handleOneCluster(image, position) {
     if(img && img.parentElement.size == 1) {
         var container = img.parentElement;
         setBorder(container, selected);
+        setOpacity(container, visible);
         var finalPosition = getFinalPosition(container, position);
         // Check the previous position, if there is a change in the orientation, move only to the corner.
         container.position = finalPosition;
@@ -109,6 +119,7 @@ function handleOneCluster(image, position) {
             setGalleryPosition(container, position, img.naturalWidth, img.naturalHeight, selected);
             container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-border-blue w3-blue cluster');
             setBorder(container, selected);
+            setOpacity(container, visible);
             container.appendChild(img);
             img.style.display = 'block';
         };
@@ -129,6 +140,8 @@ function handleTwoCluster(image, position) {
     });
     selected = selected.some(item => {return item});
 
+    var visible = image.some(item => {return item.visible});
+
     // Variables for the loading of images
     var counter = 0;
     var size = {
@@ -142,6 +155,7 @@ function handleTwoCluster(image, position) {
         
         var container = first.parentElement;
         setBorder(container, selected);
+        setOpacity(container, visible);
         var finalPosition = getFinalPosition(container, position);
         container.position = finalPosition;
         container.new = false;
@@ -210,6 +224,7 @@ function handleTwoCluster(image, position) {
                 setGalleryPosition(container, position, s.width, s.height, selected, scale);
                 container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-border-blue w3-blue cluster');
                 setBorder(container, selected);
+                setOpacity(container, visible);
                 img.forEach(i => container.appendChild(i));
             }
         };
@@ -226,6 +241,8 @@ function handleMultipleCluster(image, position) {
     });
     selected = selected.some(item => {return item});
 
+    var visible = image.some(item => {return item.visible});
+
     // Check first if the images are already been displayed 
     var img = image.map(i => {return parent.document.getElementById(i.camera.name)}); 
     var first = img[0];
@@ -237,6 +254,7 @@ function handleMultipleCluster(image, position) {
         return item.parentElement == first.parentElement}) && first.parentElement.parentElement.size > 2) {
         var container = first.parentElement.parentElement;
         setBorder(container, selected);
+        setOpacity(container, visible);
         var finalPosition = getFinalPosition(container, position);
         // Check the previous position, if there is a change in the orientation, move only to the corner.
         container.position = finalPosition;
@@ -300,6 +318,7 @@ function handleMultipleCluster(image, position) {
                 setGalleryPosition(container, position, 0.75*bigImg.naturalWidth + 0.25*maxWidth, 0.75*bigImg.naturalHeight, selected);
                 container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-border-blue w3-blue cluster');
                 setBorder(container, selected);
+                setOpacity(container, visible);
                 container.style.display = 'flex';
                 img.forEach(i => i.style.display = 'block');
             }
@@ -521,6 +540,11 @@ function setGalleryPosition(container, position, width, height, selected, scale 
     else container.setAttribute('style', style);
 }
 
+function setOpacity(container, visible) {
+    container.classList.remove("w3-opacity");
+
+    if(!visible) container.className += " w3-opacity";
+}
 function setBorder(container, selected) {
     container.classList.remove("w3-border");
     container.classList.remove("w3-border-large");

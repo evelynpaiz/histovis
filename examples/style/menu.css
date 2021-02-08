@@ -62,7 +62,6 @@
 }
 
 .cluster {
-    opacity: 1;
     position: absolute;
     transition: all 0.1s ease 0s;
     z-index: 2;
