@@ -13,11 +13,12 @@ var environment, backgroundSphere, worldPlane;
 var composer, scenePass;
 var raycaster, mouse, marker;
 
-var basicMaterial, wireMaterial, textureMaterial, multipleTextureMaterial, viewMaterials = {}, markerMaterials = {};
+var basicMaterial, wireMaterial, spriteMaterial, textureMaterial, multipleTextureMaterial, viewMaterials = {}, markerMaterials = {};
 var textureMaterialUniforms, multipleTextureMaterialUniforms, viewMaterialUniforms, sceneMaterialUniforms, markerMaterialUniforms;
 
 var textureLoader = new THREE.TextureLoader();
 const uvTexture = textureLoader.load('data/uv.jpg');
+const spriteTexture = textureLoader.load('data/sprite.png');
 var textures = {}, images = {};
 
 var params = {
@@ -26,7 +27,8 @@ var params = {
     environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
     distortion: {rmax: 1.},
     interpolation: {duration: 3.},
-    mouse: {timer: 0, delay: 200, prevent: false}
+    mouse: {timer: 0, delay: 200, prevent: false},
+    markers: {near: true, far: true, target: false}
 };
 
 var dates = {}, names = [];
@@ -45,6 +47,15 @@ function initWireMaterial() {
     return new THREE.MeshBasicMaterial({
         color: 0xffcc66,
         wireframe: true,
+    });
+}
+
+function initSpriteMaterial(map) {
+    return new THREE.SpriteMaterial({
+        map: map,
+        color: 0xffffff,
+        fog: true,
+        depthTest: false
     });
 }
 
@@ -119,11 +130,14 @@ function initSceneMaterialUniforms(vs, fs, material) {
     return uniforms;
 }
 
-function initMarkerMaterialUniforms() {
+function initMarkerMaterialUniforms(vs, fs) {
     var uniforms = {
         color: 0x2196F3,
-        linewidth: 2,       // in pixels
-        dashed: false
+        linewidth: 1,       // in pixels
+        dashed: false,
+        transparent: true,
+        vertexShader: vs,
+        fragmentShader: fs
     };
 
     return uniforms;
@@ -155,39 +169,57 @@ function cameraAspect(camera) {
 
 function cameraHelper(camera) {
     var group = new THREE.Group();
-    m = new THREE.Matrix4().getInverse(camera.projectionMatrix);
-    var v = new Float32Array(15);
-    // get the 4 corners on the near plane (neglecting distortion)
-    new THREE.Vector3( -1, -1, -1 ).applyMatrix4(m).toArray(v,  3);
-    new THREE.Vector3( -1,  1, -1 ).applyMatrix4(m).toArray(v,  6);
-    new THREE.Vector3(  1,  1, -1 ).applyMatrix4(m).toArray(v,  9);
-    new THREE.Vector3(  1, -1, -1 ).applyMatrix4(m).toArray(v, 12);
 
-    // place a frustum
+    markerMaterials[camera.name] = new LineMaterial(markerMaterialUniforms);
+    markerMaterials[camera.name].resolution.set(window.innerWidth, window.innerHeight);
+
+    m = new THREE.Matrix4().getInverse(camera.projectionMatrix);
+    var v = new Float32Array(30);
+
+    // target point
+    new THREE.Vector3(  0, 0,  1 ).applyMatrix4(m).toArray(v, 3);
+
+    // get the 4 corners on the near and far plane (neglecting distortion)
+    new THREE.Vector3( -1, -1, -1 ).applyMatrix4(m).toArray(v,  6);
+    new THREE.Vector3( -1,  1, -1 ).applyMatrix4(m).toArray(v,  9);
+    new THREE.Vector3(  1,  1, -1 ).applyMatrix4(m).toArray(v, 12);
+    new THREE.Vector3(  1, -1, -1 ).applyMatrix4(m).toArray(v, 15);
+
+    new THREE.Vector3( -1, -1,  1 ).applyMatrix4(m).toArray(v, 18); 
+    new THREE.Vector3( -1,  1,  1 ).applyMatrix4(m).toArray(v, 21); 
+    new THREE.Vector3(  1,  1,  1 ).applyMatrix4(m).toArray(v, 24); 
+    new THREE.Vector3(  1, -1,  1 ).applyMatrix4(m).toArray(v, 27); 
+
+    // place a sprite at the center point
+    {
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(8, 8, 1);
+        group.add(sprite);
+    }
+
+    // place a target line point
+    {
+        var vertices = v.slice(0, 6);
+        var geometry = getLineGeometry(markerMaterials[camera.name], vertices);
+        geometry.visible = false;
+        group.add(geometry);
+    }
+
+    // place a near plane frustum
     {
         var vertices = v;
-        var indices = [0, 1, 2,  0, 2, 3,  0, 3, 4,  0, 4, 1];
-
-        var geometry = new THREE.BufferGeometry();
-        geometry.setIndex(indices);
-        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-
-        markerMaterials[camera.name] = new LineMaterial(markerMaterialUniforms);
-        markerMaterials[camera.name].resolution.set(window.innerWidth, window.innerHeight);
-        //markerMaterials[camera.name].color.set(Math.random()*0xffffff);
-
-        var edges = new THREE.EdgesGeometry(geometry);
-        var lines = new LineSegmentsGeometry().setPositions(edges.attributes.position.array);
-
-        var line = new LineSegments2(lines, markerMaterials[camera.name]);
-        line.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
-        group.add(line);
+        var indices = [0, 2, 3,  0, 3, 4,  0, 4, 5,  0, 5, 2];
+        var geometry = getLineGeometry(markerMaterials[camera.name], vertices, indices);
+        group.add(geometry);
     }
-    // place a sphere at the camera center
+
+    // place a far plane frustum    
     {
-        var geometry = new THREE.SphereBufferGeometry(3, 8, 8);
-        var mesh = new THREE.Mesh(geometry, basicMaterial);
-        group.add(mesh);
+        var vertices = v;
+        var indices = [0, 6, 7,  0, 7, 8,  0, 8, 9,  0, 9, 6];
+        var geometry = getLineGeometry(markerMaterials[camera.name], vertices, indices);
+        geometry.visible = false;
+        group.add(geometry);
     }
     return group;
 }
@@ -241,6 +273,7 @@ function onDocumentMouseMove(event) {
 
     if (intersects.length > 0) {
         marker = intersects[0].object.parent;
+        if(marker.name != textureCamera.name) marker.children[3].visible = params.markers.far && true;
         scaleCameraHelper();
         if(!marker.userData.selected){
             var camera = getCameraByName(marker.name);
@@ -248,10 +281,14 @@ function onDocumentMouseMove(event) {
         }
     } else {
         downscaleCameraHelper();
-        if(marker.name != "" && !marker.userData.selected){
-            var camera = getCameraByName(marker.name);
-            if(camera) multipleTextureMaterial.removeCamera(camera);
+        if(marker.name != "") {
+            marker.children[3].visible = false;
+            if(!marker.userData.selected){
+                var camera = getCameraByName(marker.name);
+                if(camera) multipleTextureMaterial.removeCamera(camera);
+            }
         }
+        
         marker = new THREE.Group();
     }
 }
@@ -301,7 +338,7 @@ function getIntersectedObject(event) {
     var array = cameras.children.map(camera => {return camera.children[0]}); // camera helpers
     const index = array.findIndex(helper => helper.name == textureCamera.name);
     if(index > -1) array.splice(index, 1);
-    array = array.map(helper => {return helper.children[1]}); // center point of the pyramid
+    array = array.map(helper => {return helper.children[0]}); // center point of the pyramid
 
     // Equal to:
     //var direction = new THREE.vector3(mouse.x, mouse.y, 0.5).unproject(viewCamera).sub(origin).normalize();
@@ -537,6 +574,26 @@ function getMaxTextureUnitsCount(renderer) {
     return gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
 }
 
+function getLineGeometry(material, vertices, indices) {
+    var geometry = new LineSegmentsGeometry();
+    
+    if(indices) {
+        var g = new THREE.BufferGeometry();
+        g.setIndex(indices);
+        g.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+        var edges = new THREE.EdgesGeometry(g);
+        geometry.setPositions(edges.attributes.position.array);
+    } else {
+        
+        geometry.setPositions(vertices);
+    }
+
+    var line = new LineSegments2(geometry, material);
+    line.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
+    return line;
+}
+
 /* Sets ---------------------------------------------- */
 function setView(camera) {
     if (!camera) return;
@@ -644,7 +701,8 @@ function basicClean() {
         environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
         distortion: {rmax: 1.},
         interpolation: {duration: 3.},
-        mouse: {timer: 0, delay: 200, prevent: false}
+        mouse: {timer: 0, delay: 200, prevent: false},
+        markers: {near: true, far: true, target: false}
     };
 
     const camera = new PhotogrammetricCamera();

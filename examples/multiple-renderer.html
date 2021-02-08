@@ -32,9 +32,6 @@
             // Three additional
             var PLYLoader = histovis.PLYLoader;
             var LineMaterial = histovis.LineMaterial;
-            var LineGeometry = histovis.LineGeometry;
-            var Line2 = histovis.Line2;
-
             var LineSegmentsGeometry = histovis.LineSegmentsGeometry;
             var LineSegments2 = histovis.LineSegments2;
         </script>
@@ -67,6 +64,9 @@
             var HierarchicalCluster = histovis.HierarchicalCluster;
             // Photo gallery
             var Border = histovis.Border;
+
+            var lineVS = histovis.lineVS;
+            var lineFS = histovis.lineFS;
         </script>
 
         <script src="js/helper/photogrammetricHelper.js"></script>
@@ -112,9 +112,10 @@
                 // Materials
                 basicMaterial = initBasicMaterial();
                 wireMaterial = initWireMaterial();
+                spriteMaterial = initSpriteMaterial(spriteTexture);
                 [multipleTextureMaterialUniforms, multipleTextureMaterial] = initMultipleTextureMaterial(
                     multipleVS, multipleFS, uvTexture, view.mainLoop.gfxEngine.renderer);
-                markerMaterialUniforms = initMarkerMaterialUniforms();
+                markerMaterialUniforms = initMarkerMaterialUniforms(lineVS, lineFS);
 
                 multipleTextureMaterial.border.linewidth = 3;
 
@@ -280,8 +281,25 @@
                     multipleTextureMaterial.border.visible = value;
                 }
 
+                function updateMarkerTargetFromGUI(value) {
+                    params.markers.target = value;
+                    cameras.children.forEach(cam => cam.children[0].children[1].visible = params.markers.target);
+                }
+
+                function updateMarkerNearFromGUI(value) {
+                    params.markers.near = value;
+                    cameras.children.forEach(cam => cam.children[0].children[2].visible = params.markers.near);
+                }
+
+                function updateMarkerFarFromGUI(value) {
+                    params.markers.far = value;
+                }
+
                 var markerGUI = gui.addFolder('Viewpoint Markers');
-                markerGUI.visible = markerGUI.add(cameras, 'visible').onChange(updateViewpointMarkersFromGUI);
+                markerGUI.show = markerGUI.add(cameras, 'visible').onChange(updateViewpointMarkersFromGUI).name('show');
+                markerGUI.near = markerGUI.add(params.markers, 'target').onChange(updateMarkerTargetFromGUI);
+                markerGUI.near = markerGUI.add(params.markers, 'near').onChange(updateMarkerNearFromGUI);
+                markerGUI.near = markerGUI.add(params.markers, 'far').onChange(updateMarkerFarFromGUI);
 
                 // Clustering options
                 function updateClusterFromGUI(value) {
