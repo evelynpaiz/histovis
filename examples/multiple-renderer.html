@@ -73,7 +73,6 @@
         <script src="js/helper/photogrammetricHelperGlobe.js"></script>
 
         <script src="js/helper/clusterHelper.js"></script>
-        <script src="js/web/timeline.js"></script>
 
         <script>
             /* ------------------------- Main ------------------------ */
@@ -245,6 +244,7 @@
 
                     cluster = new HierarchicalCluster();
                     params.clustering = {active: false, images: 0, clusters: 0};
+                    params.timeline = {intervals: 12};
                 }
             }
 
@@ -300,6 +300,16 @@
                 markerGUI.near = markerGUI.add(params.markers, 'target').onChange(updateMarkerTargetFromGUI);
                 markerGUI.near = markerGUI.add(params.markers, 'near').onChange(updateMarkerNearFromGUI);
                 markerGUI.near = markerGUI.add(params.markers, 'far').onChange(updateMarkerFarFromGUI);
+
+                // Timeline
+                //function updateIntervalsFromGUI(value) {
+                //    params.timeline.intervals = value;
+                //    createTimeline();
+                //}
+
+                //var timeGUI = gui.addFolder('Timeline');
+                //timeGUI.intervals = timeGUI.add(params.timeline, 'intervals', 
+                //    {year: 1., month: 12., day: 365.}).onChange(updateIntervalsFromGUI);
 
                 // Clustering options
                 function updateClusterFromGUI(value) {
@@ -358,7 +368,7 @@
                 interpolateCameraGlobe(timestamp);
                 updateCluster(viewCamera);
                 gui.updateGUI();
-                checkTimeline();
+                //checkTimeline();
                 if(!globeRendering) view.notifyChange(true);
                 requestAnimationFrame(animate);
             }

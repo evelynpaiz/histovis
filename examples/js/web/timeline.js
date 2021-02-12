@@ -1,6 +1,8 @@
 // Ref: https://codepen.io/MinzCode/pen/MWKgyqb
 // Ref: https://codepen.io/simeydotme/pen/mJLPPq
 /* ---------------------- Variables ---------------------- */
+params.timeline = {intervals: 12};
+
 var startDate = -1; 
 var endDate = 1;
 
@@ -24,6 +26,7 @@ function checkTimeline() {
     }
 }
 
+// Ref: https://chartscss.org
 function createTimeline() {
     // Change range value of the sliders
     var inputLeft = parent.document.getElementById("input-left");
@@ -69,20 +72,30 @@ function createTimeline() {
     images.innerHTML = '';
 
     step = endDate - startDate;
-    var percent = 100. / (step + 1);
 
     var count = {};
     Object.values(dates).forEach(function(i) { count[i] = (count[i]||0) + 1;});
 
+    var start = 0;
+    step *= params.timeline.intervals;
     const max = Math.max.apply(Math, Object.values(count));
     for (var i = 0; i <= step; i++) {
-        var c = count[startDate + i];
-        if(c) {
-            var div = parent.document.createElement('div');
-            div.setAttribute('style', `left: calc(${i / step * 100}% - ${(c * percent) / (2 * max)}%); width: ${(c * percent) / max}%;`);
-            images.append(div);
-        }
+        var c = count[startDate + parseInt(i/params.timeline.intervals)];
+        if(!c) c = 0;
+        var tr = parent.document.createElement('tr');
+        var td = parent.document.createElement('td');
+
+        var end = c / max;
+        td.setAttribute('style', `--start:${start}; --size:${end};`);
+        tr.append(td);
+        images.append(tr);
+        start = end;
     }
+
+    var slider = parent.document.getElementById("mySliderTimeline");
+    var width = ((step - 1.)*100.) / step;
+    slider.style.width = `${width}%`;
+    slider.style.left = `${(100. - width)/2}%`;
 }
 
 function setLeftValue() {
