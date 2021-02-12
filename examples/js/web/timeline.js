@@ -1,206 +1,223 @@
-// Ref: https://codepen.io/MinzCode/pen/MWKgyqb
-// Ref: https://codepen.io/simeydotme/pen/mJLPPq
 /* ---------------------- Variables ---------------------- */
-params.timeline = {intervals: 12};
+var svg, brush;
+var xAxis, xScale, yScale, zoomScale, selection;
+var tMargin, tHeight, tWidth;
+var timelineData;
 
-var startDate = -1; 
-var endDate = 1;
+var colors = {handle: "#f27793", bar: "#009688"};
 
-var leftValue = 0;
-var rightValue = 0;
-
-var maxStep = 10;
-
+var yearFormat = d3.timeFormat("%Y");
+var dynamicDateFormat = timeFormat([
+    [d3.timeFormat("%Y"), function() { return true; }],// <-- how to display when Jan 1 YYYY
+    [d3.timeFormat("%b %Y"), function(d) { return d.getMonth(); }],
+    [function(){return "";}, function(d) { return d.getDate() != 1; }]
+]);
 /* ----------------------- Functions --------------------- */
-function checkTimeline() {
-    // Checks if it has a parent document
-    if(window.location !== window.parent.location && Object.values(dates).length > 0) {
-        const min =  Math.min.apply(Math, Object.values(dates)) - 1;
-        const max = Math.max.apply(Math, Object.values(dates)) + 1;
+initTimeline();
 
-        if(min > 1000 && max > 1000 && (min != startDate || max != endDate)) {
-            startDate = min;
-            endDate = max;
-            createTimeline();
-        } 
+function initTimeline() {
+    // Set the dimensions and margins of the graph
+    var container = parent.document.getElementById("myTimeline");
+    const size = {w: container.clientWidth, h: container.clientHeight};
+
+    tMargin = {top: 0, right: 35, bottom: 25, left: 35};
+    tWidth = size.w - tMargin.left - tMargin.right;
+    tHeight = size.h - tMargin.top - tMargin.bottom;
+
+    // Append the svg object to the body of the page
+    svg = d3.select(container)
+    .append("svg")
+    .attr("preserveAspectRatio", "xMinYMin meet")
+    .attr("viewBox", `0 0 ${size.w} ${size.h}`)
+    .attr('opacity', 0)
+    .classed("svg-content-responsive", true)
+    .call(zoom);
+
+    // Translate this svg element to leave some margin.
+    const g = svg.append("g")
+    .attr("transform", `translate(${tMargin.left}, ${tMargin.top})`);
+
+    // Scale and axis
+    xScale = d3.scaleTime()
+        .range([0, tWidth]);                         // This is the corresponding value I want in pixel
+
+    yScale = d3.scaleLinear()
+        .range([tHeight, 0]);
+
+    xAxis = d3.axisBottom()
+        .scale(xScale)
+        .tickFormat(dynamicDateFormat);
+
+    zoomScale = xScale;
+
+    g.append('g')
+        .attr("class", "x-axis")
+        .attr('transform', `translate(0, ${tHeight + 10})`)
+        .call(xAxis);
+
+    // Bars
+    g.append('g')
+        .attr("class", "chart");
+
+    // Append brush
+    brush = d3.brushX()
+    .handleSize(8)
+    .extent([[-5, tHeight], [tWidth+10, tHeight + 10]])
+    .on('start brush end', brushing);
+
+    const gBrush = g.append('g')
+        .attr("class", "brush");
+
+    // Custom handlers
+    const gHandles = gBrush.selectAll('g.handles')
+        .data(['handle--o', 'handle--e'])
+        .enter()
+        .append('g')
+        .attr('class', d => `handles ${d}`)
+        .attr('fill', colors.handle);
+
+    // Label
+    gHandles.selectAll('text')
+        .data(d => [d])
+        .enter()
+        .append('text')
+        .attr('text-anchor', 'middle')
+        .attr('dy', 10);
+
+    // Triangle
+    var triangle = d3.symbol()
+        .size(50)
+        .type(d3.symbolTriangle);
+
+    gHandles.selectAll('.triangle')
+        .data(d => [d])
+        .enter()
+        .append('path')
+        .attr('class', d => `triangle ${d}`)
+        .attr('d', triangle)
+        .attr('transform', d => {
+            const x = d == 'handle--o' ? -6 : 6,
+                rot = d == 'handle--o' ? -90 : 90;
+            return `translate(${x}, ${size.h / 2}) rotate(${rot})`;
+        });
+
+    // Visible Line
+    gHandles.selectAll('.line')
+        .data(d => [d])
+        .enter()
+        .append('line')
+        .attr('class', d => `line ${d}`)
+        .attr('x1', 0)
+        .attr('y1', 15)
+        .attr('x2', 0)
+        .attr('y2', size.h - 15)
+        .attr('stroke', colors.handle);
+}
+
+function updateTimeline(data) {
+    timelineData = data;
+    svg.attr('opacity', 1);
+
+    // Update the x and y axis domains
+    xScale.domain(d3.extent(data, d => d.date));    // This is the min and the max of the data
+    yScale.domain(d3.extent(data, d => d.value));
+    zoomScale.domain(d3.extent(data, d => d.date));
+
+    svg.selectAll(".x-axis")
+        .call(xAxis);
+
+    // Update the bar chart
+    var bars = svg.select(".chart")
+        .selectAll('rect')
+        .data(data);
+
+    if(!selection) selection = [zoomScale.invert(-5), zoomScale.invert(tWidth + 10)];
+
+    bars.enter()
+        .append('rect')
+        .attr('class', 'bar')
+        .attr('x', d => xScale(d.date))
+        .attr('y', d => tHeight - yScale(d.value))
+        .attr("width", d => xScale(d3.timeMonth.offset(d.date, 1)) - xScale(d.date) - 2)
+        .attr('height', d => yScale(d.value))
+        .attr('fill', colors.bar)
+        .attr('opacity', 1);
+
+    bars.exit().remove();
+
+    // Update the brushing
+    svg.select(".brush")
+        .call(brush)
+        .call(brush.move, [zoomScale(selection[0]), zoomScale(selection[1])]);
+}
+
+function timeFormat(formats) {
+    return function(date) {
+        var i = formats.length - 1, f = formats[i];
+        while (!f[1](date)) f = formats[--i];
+        return f[0](date);
+    };
+}
+
+function zoom(svg) {
+    const extent = [[tMargin.left, tMargin.top], [tWidth - tMargin.right, tHeight - tMargin.top]];
+
+    svg.call(d3.zoom()
+        .scaleExtent([0.25, 8])
+        .translateExtent(extent)
+        .extent(extent)
+        .on("zoom", zoomed));
+
+    function zoomed() {
+        if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
+        var t = d3.event.transform;
+        zoomScale = t.rescaleX(xScale);
+        svg.selectAll(".x-axis").call(xAxis.scale(zoomScale));
+        svg.selectAll(".bar").attr("x", d => zoomScale(d.date)).attr("width", d => zoomScale(d3.timeMonth.offset(d.date, 1)) - zoomScale(d.date) - 2);
+        
+        // Update the brushing
+        svg.select(".brush")
+            .call(brush)
+            .call(brush.move, [zoomScale(selection[0]), zoomScale(selection[1])]);
+        
+            // Move handlers
+        svg.selectAll('g.handles')
+            .attr('transform', d => {
+            const x = d == 'handle--o' ? zoomScale(selection[0]) : zoomScale(selection[1]);
+            return `translate(${x}, 0)`;
+            });
     }
 }
 
-// Ref: https://chartscss.org
-function createTimeline() {
-    // Change range value of the sliders
-    var inputLeft = parent.document.getElementById("input-left");
-    var inputRight = parent.document.getElementById("input-right");
+function brushing() {
+    if(!timelineData || (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom")) return; // ignore brush-by-zoom
+    const s0 = d3.event.selection,
+    d0 = [zoomScale.invert(s0[0]), zoomScale.invert(s0[1])],
+    d1 = timelineData.slice(d3.bisector(d => d.date).left(timelineData, d0[0]), d3.bisector(d => d.date).right(timelineData, d0[1]));
 
-    var thumbLeft = parent.document.querySelector(".slider > .thumb.left");
-    var thumbRight = parent.document.querySelector(".slider > .thumb.right");
-    var range = parent.document.querySelector(".slider > .range");
+    // Update bars
+    svg.selectAll('.bar')
+        .attr('opacity', d => d1.includes(d) ? 1 : 0.2);
 
-    inputLeft.min = startDate; inputRight.min = startDate;
-    inputLeft.max = endDate; inputRight.max = endDate;
+    // Move handlers
+    svg.selectAll('g.handles')
+        .attr('transform', d => {
+            const x = d == 'handle--o' ? zoomScale(d0[0]) : zoomScale(d0[1]);
+            return `translate(${x}, 0)`;
+        });
 
-    // Move the selector if it is out of range
-    leftValue = 1 + startDate;
-    rightValue = -1 + endDate;
-    setLeftValue();
-    setRightValue();
+    // Update labels
+    svg.selectAll('g.handles').selectAll('text')
+        .attr('dx', d0.length > 1 ? 0 : 6)
+        .text((d, i) => {
+            let year;
+            if (d0.length > 1) {
+                year = d == 'handle--o' ? yearFormat(d3.min(d0)) : yearFormat(d3.max(d0));
+            } else {
+                year = d == 'handle--o' ? yearFormat(d3.min(d0)) : '';
+            } 
+            return year;
+        });
 
-    range.style.display = 'block'; 
-    thumbLeft.style.display = 'block'; 
-    thumbRight.style.display = 'block'; 
-
-    // Clean the existing labels
-    var labels = parent.document.getElementById("labelTimeline");
-    labels.innerHTML = '';
-    // Set the new labels
-    var step = endDate - startDate;
-
-    var diff = 1;
-    if(step > maxStep) {
-        diff = Math.ceil(step / maxStep);
-        step = maxStep;
-    }
-    for (var i = 0; i <= step; i++) {
-        var l = parent.document.createElement('label');
-        l.textContent = startDate + i*diff;
-        l.setAttribute('style', `left: ${i / step * 100}%;`);
-        labels.append(l);
-    }
-
-    // Add the graphical representation of the number of images 
-    var images = parent.document.getElementById("imagesTimeline");
-    images.innerHTML = '';
-
-    step = endDate - startDate;
-
-    var count = {};
-    Object.values(dates).forEach(function(i) { count[i] = (count[i]||0) + 1;});
-
-    var start = 0;
-    step *= params.timeline.intervals;
-    const max = Math.max.apply(Math, Object.values(count));
-    for (var i = 0; i <= step; i++) {
-        var c = count[startDate + parseInt(i/params.timeline.intervals)];
-        if(!c) c = 0;
-        var tr = parent.document.createElement('tr');
-        var td = parent.document.createElement('td');
-
-        var end = c / max;
-        td.setAttribute('style', `--start:${start}; --size:${end};`);
-        tr.append(td);
-        images.append(tr);
-        start = end;
-    }
-
-    var slider = parent.document.getElementById("mySliderTimeline");
-    var width = ((step - 1.)*100.) / step;
-    slider.style.width = `${width}%`;
-    slider.style.left = `${(100. - width)/2}%`;
-}
-
-function setLeftValue() {
-    var inputLeft = parent.document.getElementById("input-left");
-    var inputRight = parent.document.getElementById("input-right");
-
-    inputLeft.style.zIndex = 3;
-    inputRight.style.zIndex = 2;
-
-    var thumbLeft = parent.document.querySelector(".slider > .thumb.left");
-    var range = parent.document.querySelector(".slider > .range");
-
-    updateViewedCameras();
-
-    var _this = inputLeft,
-		min = parseInt(_this.min),
-		max = parseInt(_this.max);
-    
-    _this.value = Math.min(leftValue, rightValue);
-
-    var percent = ((_this.value - min) / (max - min)) * 100;
-
-    thumbLeft.style.left = percent + "%";
-    range.style.left = percent + "%";
-}
-
-function setRightValue() {
-    var inputLeft = parent.document.getElementById("input-left");
-    var inputRight = parent.document.getElementById("input-right");
-
-    inputLeft.style.zIndex = 2;
-    inputRight.style.zIndex = 3;
-
-    var thumbRight = parent.document.querySelector(".slider > .thumb.right");
-    var range = parent.document.querySelector(".slider > .range");
-
-    updateViewedCameras();
-
-	var _this = inputRight,
-		min = parseInt(_this.min),
-		max = parseInt(_this.max);
-
-	_this.value = Math.max(rightValue, leftValue);
-
-    var percent = ((_this.value - min) / (max - min)) * 100;
-
-	thumbRight.style.right = (100 - percent) + "%";
-	range.style.right = (100 - percent) + "%";
-}
-
-function updateViewedCameras() {
-    names = Object.entries(dates).sort().filter(([name, year]) => year >= leftValue && year <= rightValue)
-        .map(([name, year]) => {return name;});
-
-    cameras.children.forEach( cam => {
-        var helper = cam.children[0];
-        if(!names.includes(cam.name)) {
-            helper.visible = false;
-            multipleTextureMaterial.removeCamera(cam);
-        } else {
-            helper.visible = true;
-            if(helper.userData.selected == true) multipleTextureMaterial.setCamera(cam);
-        }
-    });
-}
-
-if(window.location !== window.parent.location) {
-    var inputLeft = parent.document.getElementById("input-left");
-    var inputRight = parent.document.getElementById("input-right");
-
-    var thumbLeft = parent.document.querySelector(".slider > .thumb.left");
-    var thumbRight = parent.document.querySelector(".slider > .thumb.right");
-
-    inputLeft.addEventListener("input", function() {
-        leftValue = parseInt(inputLeft.value);
-        setLeftValue();
-    });
-    inputRight.addEventListener("input", function() {
-        rightValue = parseInt(inputRight.value);
-        setRightValue();
-    });
-
-    inputLeft.addEventListener("mouseover", function() {
-        thumbLeft.classList.add("hover");
-    });
-    inputLeft.addEventListener("mouseout", function() {
-        thumbLeft.classList.remove("hover");
-    });
-    inputLeft.addEventListener("mousedown", function() {
-        thumbLeft.classList.add("active");
-    });
-    inputLeft.addEventListener("mouseup", function() {
-        thumbLeft.classList.remove("active");
-    });
-
-    inputRight.addEventListener("mouseover", function() {
-        thumbRight.classList.add("hover");
-    });
-    inputRight.addEventListener("mouseout", function() {
-        thumbRight.classList.remove("hover");
-    });
-    inputRight.addEventListener("mousedown", function() {
-        thumbRight.classList.add("active");
-    });
-    inputRight.addEventListener("mouseup", function() {
-        thumbRight.classList.remove("active");
-    });
+    selection = d0;
 }
