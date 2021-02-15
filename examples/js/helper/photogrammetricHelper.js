@@ -363,7 +363,7 @@ function loadOrientation(url, source, name) {
 
     if(!names.includes(name)) names.push(name);
     const year = name.match(/[0-9]{4}/);
-    if(year) dates[name] = parseInt(year[0]);
+    if(year) dates[name] = getDate(parseInt(year[0]));
 
     return source.open(url, 'text')
         .then(parseOrientation(source))
@@ -383,7 +383,7 @@ function loadImage(url, source, name) {
 
     if(!names.includes(name)) names.push(name);
     const year = name.match(/[0-9]{4}/);
-    if(year) dates[name] = parseInt(year[0]);
+    if(year) dates[name] = getDate(parseInt(year[0]));
     
     return source.open(url, 'dataURL')
     .then(parseImage(source))
@@ -592,6 +592,26 @@ function getLineGeometry(material, vertices, indices) {
     var line = new LineSegments2(geometry, material);
     line.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
     return line;
+}
+
+function getDate(year) {
+    var d = new Array();
+    // Create a threshold of +-5 year to generate te dates
+    const threshold = 5;
+    var start = new Date(year - threshold, 0, 1);
+    var end = new Date(year + threshold, 0, 1);
+
+    // Generate the two dates 
+    d.push(getRandomDate(start, end));
+    d.push(getRandomDate(start, end));
+    return {
+        start: new Date(Math.min.apply(null, d)),
+        end: new Date(Math.max.apply(null, d))
+    };
+}
+
+function getRandomDate(start, end) {
+    return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 }
 
 /* Sets ---------------------------------------------- */
