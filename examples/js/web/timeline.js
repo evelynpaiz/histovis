@@ -1,23 +1,28 @@
 /* ---------------------- Variables ---------------------- */
 var svg, brush;
-var xAxis, xScale, yScale, zoomScale, selection;
-var tMargin, tHeight, tWidth;
-var timelineData, startDate, endDate;
+var xAxis, xScale, yScale, zoomScale, tSelection;
+var tMargin, tHeight, tWidth, tZoom;
+var tData = {}, startDate, endDate;
 
 var colors = {handle: "#f27793", bar: "#009688"};
 
 var yearFormat = d3.timeFormat("%Y");
 var dynamicDateFormat = timeFormat([
-    [d3.timeFormat("%Y"), function() { return true; }],// <-- how to display when Jan 1 YYYY
+    [d3.timeFormat("%Y"), function() { return true; }],
     [d3.timeFormat("%b %Y"), function(d) { return d.getMonth(); }],
+    [d3.timeFormat("%d %b %Y"), function(d) { return d.getDay() && d.getDate() != 1; }],
     [function(){return "";}, function(d) { return d.getDate() != 1; }]
 ]);
 
-/* ----------------------- Functions --------------------- */
+/* ------------------------- Main ------------------------ */
 initTimeline();
 
+/* ----------------------- Functions --------------------- */
 function initTimeline() {
     if(window.location !== window.parent.location) {
+        // Stablish a zoom level of 1
+        tZoom = d3.zoomIdentity; 
+
         // Set the dimensions and margins of the graph
         var container = parent.document.getElementById("myTimeline");
         container.innerHTML = "";
@@ -42,7 +47,8 @@ function initTimeline() {
 
         // Scale and axis
         xScale = d3.scaleTime()
-            .range([0, tWidth]);                         // This is the corresponding value I want in pixel
+            // This is the corresponding value I want in pixel
+            .range([0, tWidth]);                         
 
         yScale = d3.scaleLinear()
             .range([tHeight, 0]);
@@ -58,18 +64,29 @@ function initTimeline() {
             .attr('transform', `translate(0, ${tHeight + 10})`)
             .call(xAxis);
 
+        // Add a clippath (everything out of this area won't be drawn)
+        g.append("defs").append("clipPath")
+            .attr("id", "clip")
+            .append("rect")
+            .attr("width", tWidth)
+            .attr("height", tHeight + 15)
+            .attr("x", 0)
+            .attr("y", 0);
+
         // Bars
         g.append('g')
-            .attr("class", "chart");
+            .attr("class", "chart")
+            .attr("clip-path", "url(#clip)");
 
         // Append brush
         brush = d3.brushX()
         .handleSize(8)
-        .extent([[-5, tHeight], [tWidth+10, tHeight + 10]])
+        .extent([[0, tHeight], [tWidth, tHeight + 10]])
         .on('start brush end', brushing);
 
         const gBrush = g.append('g')
-            .attr("class", "brush");
+            .attr("class", "brush")
+            .attr("clip-path", "url(#clip)");
 
         // Custom handlers
         const gHandles = gBrush.selectAll('g.handles')
@@ -118,7 +135,7 @@ function initTimeline() {
     }
 }
 
-function checkTimeline() {
+function updateTimeline(updateSelection = true) {
     // Checks if it has a parent document
     if(window.location !== window.parent.location && Object.values(dates).length > 0) {
         var min =  new Date(Math.min.apply(null, Object.values(dates).map(d => {return d.start})));
@@ -129,68 +146,58 @@ function checkTimeline() {
         max.setMonth(max.getMonth() + 1);
 
         if(!startDate || !endDate || min.getTime() !== startDate.getTime() || max.getTime() !== endDate.getTime()) {
-            startDate = min;
-            endDate = max;
+            startDate = min; endDate = max;
 
-            var dateArray = d3.scaleTime()
-                .domain([min, max])
-                .ticks(d3.timeMonth, 1); // In months
+            var dayArray = d3.scaleTime().domain([min, max]).ticks(d3.timeDay, 1);
+            var monthArray = d3.scaleTime().domain([min, max]).ticks(d3.timeMonth, 1);
+            var yearArray = d3.scaleTime().domain([min, max]).ticks(d3.timeYear, 1);
 
-            var start = min;
+            tData.day = generateData(dayArray);
+            tData.month = generateData(monthArray);
+            tData.year = generateData(yearArray);
 
-            timelineData = dateArray.map(end => {
-                var probability = 0;
-                Object.values(dates).forEach(d => {
-                    if(start < d.end && end > d.start) {
-                        // Area under the curve of f(x)
-                        var fx = 1. / difference(d.start, d.end); // In days
-                        // Find x1 and x2 to be calculated
-                        var x1 = start < d.start ? d.start : start;
-                        var x2 = end > d.end ? d.end : end;
-                        // Calculate the area for the current segment
-                        probability += fx * difference(x1, x2); 
-                    }
-                });
-                var result = {date: start, value: probability};
-                start = end;
-                return result;
-            });
-
-            updateTimeline(timelineData);
+            // Update the timeline
+            if(updateSelection) tSelection = d3.extent(getDataset(), d => d.date);
+            updateTimelineData();
         } 
     }
 }
 
-function difference(date1, date2) {  
-    var difference= Math.abs(date2 - date1);
-    return difference/(1000 * 3600 * 24);
-}
+function updateTimelineData() {
+    // Get the type of dataset to be used (year, month, day?)
+    var data = getDataset();
+    var time = getTimeScale();
 
-function updateTimeline(data) {
-    timelineData = data;
+    // Update the graph
     svg.attr('opacity', 1);
 
     // Update the x and y axis domains
-    xScale.domain(d3.extent(data, d => d.date));    // This is the min and the max of the data
+    var start = new Date(startDate);
+    var end = new Date(endDate);
+
+    start.setFullYear(start.getFullYear() - 1);
+    end.setFullYear(end.getFullYear() + 1);
+
+    xScale.domain([start, end]);    // This is the min and the max of the data
+    zoomScale.domain([start, end]);
     yScale.domain(d3.extent(data, d => d.value));
-    zoomScale.domain(d3.extent(data, d => d.date));
 
     svg.selectAll(".x-axis")
-        .call(xAxis);
+        .call(xAxis.scale(zoomScale));
 
     // Update the bar chart
     var bars = svg.select(".chart")
         .selectAll('rect')
         .data(data);
 
-    selection = [zoomScale.invert(-5), zoomScale.invert(tWidth + 10)];
-
     bars.enter()
         .append('rect')
         .attr('class', 'bar')
+        .merge(bars) // get the already existing elements as well
+        .transition()
         .attr('x', d => xScale(d.date))
         .attr('y', d => tHeight - yScale(d.value))
-        .attr("width", d => xScale(d3.timeMonth.offset(d.date, 1)) - xScale(d.date) - 2)
+        .attr("width", d => Math.abs(xScale(time.offset(d.date, 1)) - xScale(d.date) - 2))
         .attr('height', d => yScale(d.value))
         .attr('fill', colors.bar)
         .attr('opacity', 1);
@@ -200,7 +207,47 @@ function updateTimeline(data) {
     // Update the brushing
     svg.select(".brush")
         .call(brush)
-        .call(brush.move, [zoomScale(selection[0]), zoomScale(selection[1])]);
+        .call(brush.move, [xScale(tSelection[0]), xScale(time.offset(tSelection[1], 1))]);
+}
+
+function generateData(array) {
+    var start = array.shift();
+
+    // Update the timeline data
+    return array.map(end => {
+        var probability = 0;
+        Object.values(dates).forEach(d => {
+            if(start < d.end && end > d.start) {
+                // Area under the curve of f(x)
+                var fx = 1. / difference(d.start, d.end); // In days
+                // Find x1 and x2 to be calculated
+                var x1 = start < d.start ? d.start : start;
+                var x2 = end > d.end ? d.end : end;
+                // Calculate the area for the current segment
+                probability += fx * difference(x1, x2); 
+            }
+        });
+        var result = {date: start, value: probability};
+        start = end;
+        return result;
+    });
+}
+
+function getDataset() {
+    if(tZoom.k < 2.5) return tData.year;
+    else if(tZoom.k < 40) return tData.month;
+    else return tData.day;
+}
+
+function getTimeScale() {
+    if(tZoom.k < 2.5) return d3.timeYear;
+    else if(tZoom.k < 40) return d3.timeMonth;
+    else return d3.timeDay;
+}
+
+function difference(date1, date2) {  
+    var difference = Math.abs(date2 - date1);
+    return difference/(1000 * 3600 * 24);
 }
 
 function timeFormat(formats) {
@@ -215,37 +262,56 @@ function zoom(svg) {
     const extent = [[tMargin.left, tMargin.top], [tWidth - tMargin.right, tHeight - tMargin.top]];
 
     svg.call(d3.zoom()
-        .scaleExtent([0.25, 8])
+        .scaleExtent([1, 50])
         .translateExtent(extent)
         .extent(extent)
         .on("zoom", zoomed));
 
     function zoomed() {
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
-        var t = d3.event.transform;
-        zoomScale = t.rescaleX(xScale);
-        svg.selectAll(".x-axis").call(xAxis.scale(zoomScale));
-        svg.selectAll(".bar").attr("x", d => zoomScale(d.date)).attr("width", d => zoomScale(d3.timeMonth.offset(d.date, 1)) - zoomScale(d.date) - 2);
-        
-        // Update the brushing
-        svg.select(".brush")
-            .call(brush)
-            .call(brush.move, [zoomScale(selection[0]), zoomScale(selection[1])]);
-        
+        // Get the type of dataset to be used (year, month, day?)
+        var time = getTimeScale();
+
+        tZoom = d3.event.transform;
+        zoomScale = tZoom.rescaleX(xScale);
+        if(time !== getTimeScale()) {
+            updateTimelineData(false);
+        } else {
+            svg.selectAll(".x-axis")
+                .call(xAxis.scale(zoomScale));
+
+            svg.selectAll(".bar")
+                .attr("x", d => zoomScale(d.date))
+                .attr("width", d => Math.abs(zoomScale(time.offset(d.date, 1)) - zoomScale(d.date) - 2));
+    
+            // Update the brushing
+            svg.select(".brush")
+                .call(brush)
+                .call(brush.move, [zoomScale(tSelection[0]), zoomScale(tSelection[1])]);
+            
             // Move handlers
-        svg.selectAll('g.handles')
-            .attr('transform', d => {
-            const x = d == 'handle--o' ? zoomScale(selection[0]) : zoomScale(selection[1]);
-            return `translate(${x}, 0)`;
-            });
+            svg.selectAll('g.handles')
+                .attr('transform', d => {
+                const x = d == 'handle--o' ? zoomScale(tSelection[0]) : zoomScale(tSelection[1]);
+                return `translate(${x}, 0)`;
+                });
+        }
     }
 }
 
 function brushing() {
-    if(!timelineData || (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom")) return; // ignore brush-by-zoom
+    var data = getDataset();
+    var time = getTimeScale();
+
+    if(data && (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom")) return; // ignore brush-by-zoom
     const s0 = d3.event.selection,
-    d0 = [zoomScale.invert(s0[0]), zoomScale.invert(s0[1])],
-    d1 = timelineData.slice(d3.bisector(d => d.date).left(timelineData, d0[0]), d3.bisector(d => d.date).right(timelineData, d0[1]));
+          d0 = [zoomScale.invert(s0[0]), zoomScale.invert(s0[1])],
+          d1 = data.slice(d3.bisector(d => d.date).left(data, d0[0]), d3.bisector(d => d.date).right(data, d0[1]));
+
+    //if (d3.event.sourceEvent && d3.event.type === 'end') {
+        //d0 = [zoomScale(time.offset(d0[0], 1)), zoomScale(time.offset(d0[1], 1))];
+        //d3.select(this).transition().call(d3.event.target.move, s1);
+    //}
 
     // Update bars
     svg.selectAll('.bar')
@@ -271,5 +337,24 @@ function brushing() {
             return year;
         });
 
-    selection = d0;
+    // Update the cameras
+    updateViewedCameras(d0[0], d0[1]);
+
+    tSelection = d0;
+}
+
+function updateViewedCameras(start, end) {
+    names = Object.entries(dates).sort().filter(([name, values]) => start <= values.end && end >= values.start)
+        .map(([name, year]) => {return name;});
+
+    cameras.children.forEach( cam => {
+        var helper = cam.children[0];
+        if(!names.includes(cam.name)) {
+            helper.visible = false;
+            multipleTextureMaterial.removeCamera(cam);
+        } else {
+            helper.visible = true;
+            if(helper.userData.selected == true) multipleTextureMaterial.setCamera(cam);
+        }
+    });
 }

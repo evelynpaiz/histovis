@@ -372,7 +372,7 @@
                 interpolateCameraGlobe(timestamp);
                 updateCluster(viewCamera);
                 gui.updateGUI();
-                checkTimeline();
+                updateTimeline();
                 if(!globeRendering) view.notifyChange(true);
                 requestAnimationFrame(animate);
             }

@@ -605,6 +605,7 @@ function getDate(year) {
     d.push(getRandomDate(start, end));
     d.push(getRandomDate(start, end));
     return {
+        year: year,
         start: new Date(Math.min.apply(null, d)),
         end: new Date(Math.max.apply(null, d))
     };
