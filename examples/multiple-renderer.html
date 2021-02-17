@@ -101,17 +101,21 @@
 
                 // Globe
                 initGlobe(container, viewCamera);
+                globeRendering = true;
+            
+                // Controls
                 controls = new itowns.FirstPersonControls(view);
 
                 // Scene
-                scene = new THREE.Scene();
-                scene.background = new THREE.Color(0xf0f0f0);
+                scene = view.scene;
+                //scene.background = new THREE.Color(0xf0f0f0);
 
                 // Cameras 
                 cameras = new THREE.Group();
                 cameras.visible = true;
                 scene.add(viewCamera);
-
+                scene.add(cameras);
+                
                 // Materials
                 basicMaterial = initBasicMaterial();
                 wireMaterial = initWireMaterial();
@@ -132,6 +136,8 @@
                 environment.visible = false;
 
                 initBuildings(multipleTextureMaterial);
+
+                scene.add(environment);
 
                 // Renderer
                 renderer = view.mainLoop.gfxEngine.renderer;
@@ -157,55 +163,38 @@
 
                 // Available collections
                 collections = {
-                    Sample: function(){
-                        clean();
-                        params.clustering.apply = true;
-                        scene.add(environment);
-                        scene.add(cameras);
-                        worldPlane.visible = false;
-                        globeRendering = false;
-                        var path = 'https://raw.githubusercontent.com/micmacIGN/Documentation/master/FilesSamples/';
-                        var source = new FetchSource(path);
-                        loadOrientation('Orientation-00.xml', source);
-                        loadOrientation('Orientation-1.xml', source);
-                        updateEnvironment();
+                    Database1: {
+                        selection: false,
+                        load: function() {
+                            params.collection = 'collections/ign_nanterre/';
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data1.json');
+                        },
+                        unload: function() {
+                            params.collection = 'collections/ign_nanterre/';
+                            unloadJSONGlobe(server + params.collection, 'index-data1.json');
+                        }
                     },
-                    Maurepas: function() {
-                        clean();
-                        params.clustering.apply = true;
-                        scene.add(environment);
-                        scene.add(cameras);
-                        globeRendering = false;
-                        params.collection = 'collections/maurepas/';
-                        loadJSON(multipleTextureMaterial, server + params.collection);
+                    Database2: {
+                        selection: false,
+                        load: function() {
+                            params.collection = 'collections/ign_nanterre/';
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data2.json');
+                        },
+                        unload: function() {
+                            params.collection = 'collections/ign_nanterre/';
+                            unloadJSONGlobe(server + params.collection, 'index-data2.json');
+                        }
                     },
-                    Viabon: function() {
-                        clean();
-                        params.clustering.apply = true;
-                        view.scene.add(environment);
-                        view.scene.add(cameras);
-                        globeRendering = true;
-                        backgroundSphere.visible = false;
-                        params.collection = 'collections/viabon/';
-                        loadJSONGlobe(multipleTextureMaterial, server + params.collection);
-                    },
-                    Niepce: function(){
-                        clean();
-                        params.clustering.apply = true;
-                        view.scene.add(environment);
-                        view.scene.add(cameras);
-                        globeRendering = true;
-                        params.collection = 'collections/niepce/';
-                        loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'niepce-full.json');
-                    },
-                    Nanterre: function(){
-                        clean();
-                        params.clustering.apply = true;
-                        view.scene.add(environment);
-                        view.scene.add(cameras);
-                        globeRendering = true;
-                        params.collection = 'collections/ign_nanterre/';
-                        loadJSONGlobe(multipleTextureMaterial, server + params.collection);
+                    Database3: {
+                        selection: false,
+                        load: function() {
+                            params.collection = 'collections/ign_nanterre/';
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data3.json');
+                        },
+                        unload: function() {
+                            params.collection = 'collections/ign_nanterre/';
+                            unloadJSONGlobe(server + params.collection, 'index-data3.json');
+                        }
                     }
                 };
 
@@ -257,7 +246,11 @@
 
                 // Collections options
                 function menuCollections(){
-                    for(const key in collections) collectionsGUI.add(collections, key);
+                    for(const key in collections) 
+                        collectionsGUI.add(collections[key], 'selection').name(key).onChange(function (value) {
+                            if(value == true) collections[key].load();
+                            else collections[key].unload();
+                        });
                     collectionsGUI.closed = false;
                 }
 
@@ -369,8 +362,9 @@
             }
 
             function animate(timestamp) {
+                if(textureCamera.name == "" && cameras.children.length > 0) setCamera(getCamera(cameras.children[0]));
                 interpolateCameraGlobe(timestamp);
-                updateCluster(viewCamera);
+                //updateCluster(viewCamera);
                 gui.updateGUI();
                 updateTimeline();
                 if(!globeRendering) view.notifyChange(true);

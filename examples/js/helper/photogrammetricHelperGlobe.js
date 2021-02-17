@@ -125,6 +125,7 @@ function initBuildings(material) {
 
 /* Loading ------------------------------------------- */
 function loadJSONGlobe(material, path, file) {
+    console.log("inside1");
     file = file || 'index-geo.json';
     var source = new FetchSource(path);
     source.open(file, 'text').then((json) => {
@@ -153,6 +154,36 @@ function loadJSONGlobe(material, path, file) {
 
         if(json.groupimg) Object.keys(json.groupimg).forEach((image) => 
             loadOrientedImageGroup(json.groupimg[image], 'img/'+image+'.jpg', source, image));
+    });
+}
+
+function unloadJSONGlobe(path, file) {
+    console.log("inside2");
+    file = file || 'index-geo.json';
+    var source = new FetchSource(path);
+    source.open(file, 'text').then((json) => {
+        json = JSON.parse(json);
+
+        if(json.ori) json.ori.forEach((url, i) => {
+            const match = url.match(/Orientation-(.*)\.[\w\d]*\.xml/i);
+            var name = match ? match[1] : url;
+            var camera = getCameraByName(name);
+            if(camera) {
+                if(camera.name == textureCamera.name) {
+                    const camera = new PhotogrammetricCamera();
+                    prevCamera.set(camera);
+                    nextCamera.set(camera);
+                    prevCamera.timestamp = undefined;
+                    nextCamera.timestamp = undefined;
+                    textureCamera.copy(camera);
+                }
+                multipleTextureMaterial.removeCamera(camera);
+                cameras.remove(camera);
+                delete textures[name];
+                delete images[name];
+                delete dates[name];
+            }
+        });
     });
 }
 
