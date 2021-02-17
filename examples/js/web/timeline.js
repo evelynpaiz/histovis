@@ -18,6 +18,8 @@ var dynamicDateFormat = timeFormat([
 initTimeline();
 
 /* ----------------------- Functions --------------------- */
+
+/* Init ---------------------------------------------- */
 function initTimeline() {
     if(window.location !== window.parent.location) {
         // Stablish a zoom level of 1
@@ -135,6 +137,7 @@ function initTimeline() {
     }
 }
 
+/* Updates ------------------------------------------- */
 function updateTimeline(updateSelection = true) {
     // Checks if it has a parent document
     if(window.location !== window.parent.location && Object.values(dates).length > 0) {
@@ -142,8 +145,8 @@ function updateTimeline(updateSelection = true) {
         var max = new Date(Math.max.apply(null, Object.values(dates).map(d => {return d.end})));
 
         // Add one extra month of min and max 
-        min.setMonth(min.getMonth() - 1);
-        max.setMonth(max.getMonth() + 1);
+        min = new Date(min.getFullYear(), 0, 1);
+        max = new Date(max.getFullYear()+1, 0, 1);
 
         if(!startDate || !endDate || min.getTime() !== startDate.getTime() || max.getTime() !== endDate.getTime()) {
             startDate = min; endDate = max;
@@ -180,6 +183,9 @@ function updateTimelineData() {
 
     xScale.domain([start, end]);    // This is the min and the max of the data
     zoomScale.domain([start, end]);
+
+    // Find the correct y scale
+    //var array = [...tData.day, ...tData.month, ...tData.year];
     yScale.domain(d3.extent(data, d => d.value));
 
     svg.selectAll(".x-axis")
@@ -196,9 +202,9 @@ function updateTimelineData() {
         .merge(bars) // get the already existing elements as well
         .transition()
         .attr('x', d => xScale(d.date))
-        .attr('y', d => tHeight - yScale(d.value))
+        .attr('y', d => yScale(d.value))
         .attr("width", d => Math.abs(xScale(time.offset(d.date, 1)) - xScale(d.date) - 2))
-        .attr('height', d => yScale(d.value))
+        .attr('height', d => tHeight - yScale(d.value))
         .attr('fill', colors.bar)
         .attr('opacity', 1);
 
@@ -210,6 +216,35 @@ function updateTimelineData() {
         .call(brush.move, [xScale(tSelection[0]), xScale(time.offset(tSelection[1], 1))]);
 }
 
+function updateViewedCameras(start, end) {
+    names = Object.entries(dates).sort().filter(([name, values]) => start < values.end && end > values.start)
+        .map(([name, year]) => {return name;});
+
+    cameras.children.forEach( cam => {
+        var helper = cam.children[0];
+        if(!names.includes(cam.name)) {
+            helper.visible = false;
+            multipleTextureMaterial.removeCamera(cam);
+        } else {
+            helper.visible = true;
+            if(helper.userData.selected == true) multipleTextureMaterial.setCamera(cam);
+        }
+    });
+}
+
+/* Gets ---------------------------------------------- */
+function getDataset() {
+    if(tZoom.k < 2.5) return tData.year;
+    else if(tZoom.k < 40) return tData.month;
+    else return tData.day;
+}
+
+function getTimeScale() {
+    if(tZoom.k < 2.5) return d3.timeYear;
+    else if(tZoom.k < 40) return d3.timeMonth;
+    else return d3.timeDay;
+}
+
 function generateData(array) {
     var start = array.shift();
 
@@ -217,7 +252,7 @@ function generateData(array) {
     return array.map(end => {
         var probability = 0;
         Object.values(dates).forEach(d => {
-            if(start < d.end && end > d.start) {
+            if(start <= d.end && end >= d.start) {
                 // Area under the curve of f(x)
                 var fx = 1. / difference(d.start, d.end); // In days
                 // Find x1 and x2 to be calculated
@@ -233,18 +268,7 @@ function generateData(array) {
     });
 }
 
-function getDataset() {
-    if(tZoom.k < 2.5) return tData.year;
-    else if(tZoom.k < 40) return tData.month;
-    else return tData.day;
-}
-
-function getTimeScale() {
-    if(tZoom.k < 2.5) return d3.timeYear;
-    else if(tZoom.k < 40) return d3.timeMonth;
-    else return d3.timeDay;
-}
-
+/* Dates --------------------------------------------- */
 function difference(date1, date2) {  
     var difference = Math.abs(date2 - date1);
     return difference/(1000 * 3600 * 24);
@@ -258,6 +282,7 @@ function timeFormat(formats) {
     };
 }
 
+/* Interaction --------------------------------------- */
 function zoom(svg) {
     const extent = [[tMargin.left, tMargin.top], [tWidth - tMargin.right, tHeight - tMargin.top]];
 
@@ -341,20 +366,4 @@ function brushing() {
     updateViewedCameras(d0[0], d0[1]);
 
     tSelection = d0;
-}
-
-function updateViewedCameras(start, end) {
-    names = Object.entries(dates).sort().filter(([name, values]) => start <= values.end && end >= values.start)
-        .map(([name, year]) => {return name;});
-
-    cameras.children.forEach( cam => {
-        var helper = cam.children[0];
-        if(!names.includes(cam.name)) {
-            helper.visible = false;
-            multipleTextureMaterial.removeCamera(cam);
-        } else {
-            helper.visible = true;
-            if(helper.userData.selected == true) multipleTextureMaterial.setCamera(cam);
-        }
-    });
 }
