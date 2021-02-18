@@ -140,29 +140,35 @@ function initTimeline() {
 /* Updates ------------------------------------------- */
 function updateTimeline(updateSelection = true) {
     // Checks if it has a parent document
-    if(window.location !== window.parent.location && Object.values(dates).length > 0) {
-        var min =  new Date(Math.min.apply(null, Object.values(dates).map(d => {return d.start})));
-        var max = new Date(Math.max.apply(null, Object.values(dates).map(d => {return d.end})));
+    if(window.location !== window.parent.location) {
+        if(Object.values(dates).length < 1) {
+            // Update the graph
+            svg.attr('opacity', 0);
+        } else {
+            var min =  new Date(Math.min.apply(null, Object.values(dates).map(d => {return d.start})));
+            var max = new Date(Math.max.apply(null, Object.values(dates).map(d => {return d.end})));
 
-        // Add one extra month of min and max 
-        min = new Date(min.getFullYear(), 0, 1);
-        max = new Date(max.getFullYear()+1, 0, 1);
+            // Add one extra month of min and max 
+            min = new Date(min.getFullYear(), 0, 1);
+            max = new Date(max.getFullYear()+1, 0, 1);
 
-        if(!startDate || !endDate || min.getTime() !== startDate.getTime() || max.getTime() !== endDate.getTime()) {
-            startDate = min; endDate = max;
+            if(!startDate || !endDate || min.getTime() !== startDate.getTime() || max.getTime() !== endDate.getTime()) {
+                startDate = min; endDate = max;
 
-            var dayArray = d3.scaleTime().domain([min, max]).ticks(d3.timeDay, 1);
-            var monthArray = d3.scaleTime().domain([min, max]).ticks(d3.timeMonth, 1);
-            var yearArray = d3.scaleTime().domain([min, max]).ticks(d3.timeYear, 1);
+                var dayArray = d3.scaleTime().domain([min, max]).ticks(d3.timeDay, 1);
+                var monthArray = d3.scaleTime().domain([min, max]).ticks(d3.timeMonth, 1);
+                var yearArray = d3.scaleTime().domain([min, max]).ticks(d3.timeYear, 1);
 
-            tData.day = generateData(dayArray);
-            tData.month = generateData(monthArray);
-            tData.year = generateData(yearArray);
+                tData.day = generateData(dayArray);
+                tData.month = generateData(monthArray);
+                tData.year = generateData(yearArray);
 
-            // Update the timeline
-            if(updateSelection) tSelection = d3.extent(getDataset(), d => d.date);
-            updateTimelineData();
-        } 
+                // Update the timeline
+                if(updateSelection) tSelection = d3.extent(getDataset(), d => d.date);
+                updateTimelineData();
+            }
+        }
+         
     }
 }
 

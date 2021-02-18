@@ -507,7 +507,6 @@ function handleCamera(camera, name){
     } 
     images[name].setCamera(camera, [worldPlane, backgroundSphere]); 
     
-
     camera.updateMatrixWorld();
 
     cameras.add(camera);

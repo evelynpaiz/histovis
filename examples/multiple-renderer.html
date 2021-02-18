@@ -363,8 +363,9 @@
 
             function animate(timestamp) {
                 if(textureCamera.name == "" && cameras.children.length > 0) setCamera(getCamera(cameras.children[0]));
+                //images.forEach(img => {if(img.projectedPoints.length < 1) img.setCamera(camera, [worldPlane, backgroundSphere]);});
                 interpolateCameraGlobe(timestamp);
-                //updateCluster(viewCamera);
+                updateCluster(viewCamera);
                 gui.updateGUI();
                 updateTimeline();
                 if(!globeRendering) view.notifyChange(true);

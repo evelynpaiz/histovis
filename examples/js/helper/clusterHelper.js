@@ -26,9 +26,15 @@ function updateCluster(camera) {
     if(rayIntersects.length > 0.) {
         var point = rayIntersects[0].point;
 
-        // Compute distances
+        // Filter only images that are selected
         var filtered = Object.entries(images).filter(([name, value]) => names.includes(name)).map(([name, value]) => {return value});
-        filtered.forEach(image => image.updateDistance(point));
+        // Update projected points and update distance between them
+        filtered.forEach(image => {
+            if(image.projectedPoints.length < 1) image.updatePoints([worldPlane, backgroundSphere]);
+            image.updateDistance(point)
+        });
+        // Remove image that do not have projected points
+        filtered = filtered.filter(image => image.projectedPoints.length > 0);
 
         // Max of all image distances
         var maxDistanceProjection = Math.max.apply(Math, Object.values(filtered).map(image => image.distance));

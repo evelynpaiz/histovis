@@ -125,7 +125,6 @@ function initBuildings(material) {
 
 /* Loading ------------------------------------------- */
 function loadJSONGlobe(material, path, file) {
-    console.log("inside1");
     file = file || 'index-geo.json';
     var source = new FetchSource(path);
     source.open(file, 'text').then((json) => {
@@ -158,7 +157,6 @@ function loadJSONGlobe(material, path, file) {
 }
 
 function unloadJSONGlobe(path, file) {
-    console.log("inside2");
     file = file || 'index-geo.json';
     var source = new FetchSource(path);
     source.open(file, 'text').then((json) => {
