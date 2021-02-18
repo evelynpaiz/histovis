@@ -165,35 +165,48 @@
                 collections = {
                     Database1: {
                         selection: false,
+                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        cameras: [],
                         load: function() {
+                            var name = 'Database1';
+                            markerMaterialUniforms.color = collections[name].color;
                             params.collection = 'collections/ign_nanterre/';
-                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data1.json');
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data1.json', name);
                         },
                         unload: function() {
+                            var name = 'Database1';
                             params.collection = 'collections/ign_nanterre/';
-                            unloadJSONGlobe(server + params.collection, 'index-data1.json');
+                            unloadJSONGlobe(name);
                         }
                     },
                     Database2: {
                         selection: false,
+                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        cameras: [],
                         load: function() {
+                            var name = 'Database2';
+                            markerMaterialUniforms.color = collections[name].color;
                             params.collection = 'collections/ign_nanterre/';
-                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data2.json');
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data2.json', name);
                         },
                         unload: function() {
-                            params.collection = 'collections/ign_nanterre/';
-                            unloadJSONGlobe(server + params.collection, 'index-data2.json');
+                            var name = 'Database2';
+                            unloadJSONGlobe(name);
                         }
                     },
                     Database3: {
                         selection: false,
+                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        cameras: [],
                         load: function() {
+                            var name = 'Database3';
+                            markerMaterialUniforms.color = collections[name].color;
                             params.collection = 'collections/ign_nanterre/';
-                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data3.json');
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data3.json', name);
                         },
                         unload: function() {
-                            params.collection = 'collections/ign_nanterre/';
-                            unloadJSONGlobe(server + params.collection, 'index-data3.json');
+                            var name = 'Database3';
+                            unloadJSONGlobe(name);
                         }
                     }
                 };
@@ -244,20 +257,17 @@
             function initGUI() {
                 var gui = new GUI();
 
-                // Collections options
-                function menuCollections(){
-                    for(const key in collections) 
-                        collectionsGUI.add(collections[key], 'selection').name(key).onChange(function (value) {
-                            if(value == true) collections[key].load();
-                            else collections[key].unload();
-                        });
-                    collectionsGUI.closed = false;
+                var collectionsGUI = gui.addFolder('Collections');
+                for(const key in collections) {
+                    collectionsGUI.add(collections[key], 'selection').name(key).onChange(function (value) {
+                        if(value == true) collections[key].load();
+                        else collections[key].unload();
+                    });
+                    collectionsGUI.addColor(collections[key], 'color').onChange(function (value) {
+                        collections[key].cameras.forEach(name => markerMaterials[name].color = new THREE.Color(value));
+                    });
                 }
-
-                if(!parent.document.getElementById('mySidebar')){
-                    var collectionsGUI = gui.addFolder('Collections');
-                    menuCollections();
-                } 
+                collectionsGUI.closed = false;
 
                 // View Camera
                 function updateViewCameraFromGUI() {
@@ -297,16 +307,6 @@
                 markerGUI.near = markerGUI.add(params.markers, 'target').onChange(updateMarkerTargetFromGUI);
                 markerGUI.near = markerGUI.add(params.markers, 'near').onChange(updateMarkerNearFromGUI);
                 markerGUI.near = markerGUI.add(params.markers, 'far').onChange(updateMarkerFarFromGUI);
-
-                // Timeline
-                //function updateIntervalsFromGUI(value) {
-                //    params.timeline.intervals = value;
-                //    createTimeline();
-                //}
-
-                //var timeGUI = gui.addFolder('Timeline');
-                //timeGUI.intervals = timeGUI.add(params.timeline, 'intervals', 
-                //    {year: 1., month: 12., day: 365.}).onChange(updateIntervalsFromGUI);
 
                 // Clustering options
                 function updateClusterFromGUI(value) {
@@ -363,7 +363,6 @@
 
             function animate(timestamp) {
                 if(textureCamera.name == "" && cameras.children.length > 0) setCamera(getCamera(cameras.children[0]));
-                //images.forEach(img => {if(img.projectedPoints.length < 1) img.setCamera(camera, [worldPlane, backgroundSphere]);});
                 interpolateCameraGlobe(timestamp);
                 updateCluster(viewCamera);
                 gui.updateGUI();

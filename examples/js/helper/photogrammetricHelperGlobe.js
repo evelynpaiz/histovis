@@ -124,7 +124,7 @@ function initBuildings(material) {
 }
 
 /* Loading ------------------------------------------- */
-function loadJSONGlobe(material, path, file) {
+function loadJSONGlobe(material, path, file, c) {
     file = file || 'index-geo.json';
     var source = new FetchSource(path);
     source.open(file, 'text').then((json) => {
@@ -148,23 +148,28 @@ function loadJSONGlobe(material, path, file) {
 
         updateEnvironmentGlobe();
 
-        if(json.ori && json.img) json.ori.forEach((orientationUrl, i) => 
-            loadOrientedImage(orientationUrl, json.img[i], source));
+        if(json.ori && json.img) json.ori.forEach((orientationUrl, i) => {
+            if(c && collections[c].cameras) {
+                const match = orientationUrl.match(/Orientation-(.*)\.[\w\d]*\.xml/i);
+                var name = match ? match[1] : url;
+                collections[c].cameras.push(name);
+            }
+            loadOrientedImage(orientationUrl, json.img[i], source);
+            });
+            
 
-        if(json.groupimg) Object.keys(json.groupimg).forEach((image) => 
-            loadOrientedImageGroup(json.groupimg[image], 'img/'+image+'.jpg', source, image));
+        if(json.groupimg) Object.keys(json.groupimg).forEach((image) => {
+            if(c && collections[c].cameras) {
+                collections[c].cameras.push(image);
+            }
+            loadOrientedImageGroup(json.groupimg[image], 'img/'+image+'.jpg', source, image);
+            });
     });
 }
 
-function unloadJSONGlobe(path, file) {
-    file = file || 'index-geo.json';
-    var source = new FetchSource(path);
-    source.open(file, 'text').then((json) => {
-        json = JSON.parse(json);
-
-        if(json.ori) json.ori.forEach((url, i) => {
-            const match = url.match(/Orientation-(.*)\.[\w\d]*\.xml/i);
-            var name = match ? match[1] : url;
+function unloadJSONGlobe(c) {
+    if(collections[c] && collections[c].cameras) {
+        collections[c].cameras.forEach(name => {
             var camera = getCameraByName(name);
             if(camera) {
                 if(camera.name == textureCamera.name) {
@@ -182,7 +187,7 @@ function unloadJSONGlobe(path, file) {
                 delete dates[name];
             }
         });
-    });
+    }
 }
 
 /* Update -------------------------------------------- */
