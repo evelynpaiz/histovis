@@ -10,6 +10,12 @@
             body { margin: 0; overflow: hidden; height: 100%; }
             #viewerDiv { margin: auto; height: 100%; width: 100%; padding: 0; }
             canvas { display: block }
+
+            .dg-collection{width: 60%;display:inline-block}
+            .dg-collection > div > .property-name{width: 80% !important}
+            .dg-collection > div > .c{width: 20% !important}
+            .dg-color{width: 30%;display:inline-block}
+            .dg-color > div > .c{width: 100% !important}
         </style>
     </head>
     <body>
@@ -255,17 +261,29 @@
             }
 
             function initGUI() {
-                var gui = new GUI();
+                var options = window.location !== window.parent.location ? {autoPlace: false} : {};
+                var gui = new GUI(options);
 
                 var collectionsGUI = gui.addFolder('Collections');
                 for(const key in collections) {
-                    collectionsGUI.add(collections[key], 'selection').name(key).onChange(function (value) {
+                    var color = collectionsGUI.addColor(collections[key], 'color').name('').onChange(function (value) {
+                        collections[key].cameras.forEach(name => {
+                            var camera = getCameraByName(name);
+                            if(camera) {
+                                const color = new THREE.Color(value);
+                                markerMaterials[name].color = color;
+                                multipleTextureMaterial.setBorder(camera, {color: color});
+                            }
+                        });
+                    });
+                    
+                    var check = collectionsGUI.add(collections[key], 'selection').name(key).onChange(function (value) {
                         if(value == true) collections[key].load();
                         else collections[key].unload();
                     });
-                    collectionsGUI.addColor(collections[key], 'color').onChange(function (value) {
-                        collections[key].cameras.forEach(name => markerMaterials[name].color = new THREE.Color(value));
-                    });
+
+                    color.domElement.parentNode.parentNode.classList.add('dg-color');
+                    check.domElement.parentNode.parentNode.classList.add('dg-collection');
                 }
                 collectionsGUI.closed = false;
 
@@ -358,15 +376,26 @@
                     clusteringGUI.clusters.max(params.clustering.images);
                     clusteringGUI.clusters.setValue(Math.floor(params.clustering.clusters));
                 }
+                if(window.location !== window.parent.location) {
+                    var bar = parent.document.getElementById('mySidebar');
+                    bar.appendChild(gui.domElement);
+                }
+
                 return gui;
             }
 
             function animate(timestamp) {
+                // Update 
                 if(textureCamera.name == "" && cameras.children.length > 0) setCamera(getCamera(cameras.children[0]));
-                interpolateCameraGlobe(timestamp);
+                cameras.children.forEach(camera => {
+                    multipleTextureMaterial.setBorder(camera, {color: markerMaterials[camera.name].color});
+                });
                 updateCluster(viewCamera);
-                gui.updateGUI();
                 updateTimeline();
+                gui.updateGUI();
+                // Interpolate
+                interpolateCameraGlobe(timestamp);
+                // Render
                 if(!globeRendering) view.notifyChange(true);
                 requestAnimationFrame(animate);
             }

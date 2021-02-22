@@ -96,6 +96,7 @@ function handleOneCluster(image, position) {
 
     // If the image already exists, then just move it
     if(img && img.parentElement.size == 1) {
+        img.style.setProperty('border-color', `#${markerMaterials[image.camera.name].color.getHexString()}`, 'important');
         var container = img.parentElement;
         setBorder(container, selected);
         setOpacity(container, visible);
@@ -123,7 +124,7 @@ function handleOneCluster(image, position) {
 
         img.onload = function () { 
             setGalleryPosition(container, position, img.naturalWidth, img.naturalHeight, selected);
-            container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-border-blue w3-blue cluster');
+            container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-black w3-border-black cluster');
             setBorder(container, selected);
             setOpacity(container, visible);
             container.appendChild(img);
@@ -136,7 +137,11 @@ function handleOneCluster(image, position) {
 
 function handleTwoCluster(image, position) {
     // Check first if the images are already displayed in the scene
-    var img = image.map(i => {return parent.document.getElementById(i.camera.name)}); 
+    var img = image.map(i => {
+        var item = parent.document.getElementById(i.camera.name);
+        if(item) item.style.setProperty('border-color', `#${markerMaterials[i.camera.name].color.getHexString()}`, 'important');
+        return item;
+    }); 
     var first = img[0];
 
     var selected = image.map(item => {
@@ -158,7 +163,7 @@ function handleTwoCluster(image, position) {
     // If the images are already in the same cluster element
     if(img.every(item => {return item}) && img.every(item => {
         return item.parentElement == first.parentElement}) && first.parentElement.size == 2) {
-        
+        // Update the container 
         var container = first.parentElement;
         setBorder(container, selected);
         setOpacity(container, visible);
@@ -228,7 +233,7 @@ function handleTwoCluster(image, position) {
                 var s = orientation ? size.vertical : size.horizontal;
 
                 setGalleryPosition(container, position, s.width, s.height, selected, scale);
-                container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-border-blue w3-blue cluster');
+                container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-black w3-border-black cluster');
                 setBorder(container, selected);
                 setOpacity(container, visible);
                 img.forEach(i => container.appendChild(i));
@@ -250,7 +255,11 @@ function handleMultipleCluster(image, position) {
     var visible = image.some(item => {return item.visible});
 
     // Check first if the images are already been displayed 
-    var img = image.map(i => {return parent.document.getElementById(i.camera.name)}); 
+    var img = image.map(i => {
+        var item = parent.document.getElementById(i.camera.name);
+        if(item) item.style.setProperty('border-color', `#${markerMaterials[i.camera.name].color.getHexString()}`, 'important');
+        return item;
+    }); 
     var first = img[0];
 
     // Variable for image loading
@@ -258,6 +267,7 @@ function handleMultipleCluster(image, position) {
     
     if(img.every(item => {return item}) && img.every(item => {
         return item.parentElement == first.parentElement}) && first.parentElement.parentElement.size > 2) {
+        // Update the container 
         var container = first.parentElement.parentElement;
         setBorder(container, selected);
         setOpacity(container, visible);
@@ -322,7 +332,7 @@ function handleMultipleCluster(image, position) {
 
             if(counter == img.length) {
                 setGalleryPosition(container, position, 0.75*bigImg.naturalWidth + 0.25*maxWidth, 0.75*bigImg.naturalHeight, selected);
-                container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-border-blue w3-blue cluster');
+                container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-black w3-border-black cluster');
                 setBorder(container, selected);
                 setOpacity(container, visible);
                 container.style.display = 'flex';
@@ -339,6 +349,7 @@ function handleMultipleCluster(image, position) {
 
 function handleGalleryImage(image, event = true, bigImage = undefined) {
     var img = parent.document.createElement('img');
+    var color =  markerMaterials[image.camera.name].color;
     img.src = image.url || 'data/uv.jpg';
     img.setAttribute('id', image.camera.name);
     img.setAttribute('title', 'image: ' + image.camera.name);
@@ -366,8 +377,8 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
         });
     }
 
-    img.setAttribute('class', 'w3-image w3-border w3-border-blue w3-round');
-    img.setAttribute('style', 'cursor:pointer; display:none');
+    img.setAttribute('class', 'w3-image w3-border w3-round');
+    img.setAttribute('style', `cursor:pointer; display:none; border-color:#${color.getHexString()}!important`);
 
     return img;
 

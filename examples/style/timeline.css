@@ -1,6 +1,7 @@
 #myTimeline {
     position: fixed;
-    width: 100%;
+    width:calc(100% - 220px);
+    margin-left:210px;
     height: 10%;
     top: 90%;
 	display: flex;

@@ -48,8 +48,8 @@
 #myContent {
     z-index: 1;
     height:calc(90% - 20px);
-    width:calc(100% - 20px);
-    margin-left:10px;
+    width:calc(100% - 220px);
+    margin-left:210px;
     position:fixed;
     top:10px;
     transition: all 0.4s ease 0s;
