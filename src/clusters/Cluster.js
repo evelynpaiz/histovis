@@ -49,7 +49,7 @@ class HierarchicalCluster {
         // Consider all data points as individual clusters
         this.tree = nodes.map(node => {
             return new BiCluster({object: [node], level: 0, weight: node.weight,
-                position: node.projectedPoints[0].clone()})
+                position: node.projectedPoints["center"].clone()})
         });
 
         // Loop until the lengt of the cluster array is one

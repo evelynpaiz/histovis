@@ -98,11 +98,8 @@ class Border {
         if(border) {
             var intersect = border.line.intersect(new Line(this.points.center, p));
             if(intersect) return {point: intersect, orientation: border.orientation}
-            else return false;
-        } else {
-            return false;
-        } 
-
+        }
+        return false;
     }
 }
 

@@ -5,12 +5,15 @@ margin = {width: 110, height: 90};
 var cluster = new HierarchicalCluster();
 var border;
 
+const cnormal = new THREE.Color(0x000000);
+const cselected = new THREE.Color(0xf44336);
+const cover = new THREE.Color(0x2196F3);
 /* ----------------------- Functions --------------------- */
 
 /* Update -------------------------------------------- */
 function updateCluster(camera) {
+    // Camera information
     var proj = camera.projectionMatrix.clone();
-    var inverseProj = new THREE.Matrix4().getInverse(proj);
     var world = camera.matrixWorld.clone();
     var inverseWorld = new THREE.Matrix4().getInverse(world);
 
@@ -18,72 +21,68 @@ function updateCluster(camera) {
     frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(proj, inverseWorld));
 
     var origin = camera.position.clone();
-    var direction = new THREE.Vector3(  0,  0,  1).applyMatrix4(inverseProj).applyMatrix4(world).sub(origin).normalize();
 
-    var ray = new THREE.Raycaster(origin, direction);
-    var rayIntersects = ray.intersectObjects([worldPlane, backgroundSphere], true);
+    // Update the projected points of the images
+    Object.values(images).forEach(image => {   
+        if(image.camera) {
+            image.updatePoints([worldPlane, backgroundSphere]); 
+            if(image.camera.name == camera.name) image.distance = 0; // make the current visualized image the priority
+            else image.updateDistance(origin);
+        }
+    });
 
-    if(rayIntersects.length > 0.) {
-        var point = rayIntersects[0].point;
+    // Filter only images that are selected
+    var filtered = Object.entries(images).filter(([name, value]) => names.includes(name)).map(([name, value]) => {return value});
+    
+    // Max of all image distances
+    var maxDistanceProjection = Math.max.apply(Math, filtered.map(image => image.distance));
 
-        // Filter only images that are selected
-        var filtered = Object.entries(images).filter(([name, value]) => names.includes(name)).map(([name, value]) => {return value});
-        // Update projected points and update distance between them
-        filtered.forEach(image => {
-            if(image.projectedPoints.length < 1) image.updatePoints([worldPlane, backgroundSphere]);
-            image.updateDistance(point)
-        });
-        // Remove image that do not have projected points
-        filtered = filtered.filter(image => image.projectedPoints.length > 0);
+    // Convert the distances to weights and check if the image is visible
+    filtered.forEach(image => {
+        image.normalizeDistance(maxDistanceProjection);
+        image.visible = false;
+        Object.values(image.projectedPoints).forEach(p => image.visible = image.visible || frustum.containsPoint(p));
+    });
 
-        // Max of all image distances
-        var maxDistanceProjection = Math.max.apply(Math, Object.values(filtered).map(image => image.distance));
+    // Rank weights in descending order
+    filtered = filtered.sort((a,b) => (a.weight < b.weight) ? 1 : ((b.weight < a.weight) ? -1 : 0));
+    filtered = filtered.filter((i, index) => (index < params.clustering.images));
 
-        // Convert the distances to weights
-        filtered.forEach(image => {
-            image.normalizeDistance(maxDistanceProjection);
-            image.visible = frustum.containsPoint(image.projectedPoints[0]);
-        });
+    // Cluster objects
+    cluster.hcluster(filtered);
 
-        // Rank weights in descending order
-        filtered = filtered.sort((a,b) => (a.weight.mean < b.weight.mean) ? 1 : ((b.weight.mean < a.weight.mean) ? -1 : 0));
-        filtered = filtered.filter((i, index) => (index < params.clustering.images));
-
-        // Cluster objects
-        cluster.hcluster(filtered);
-
-        // Update the image gallery
-        updateImageGallery(cluster.getClusterByNumber(params.clustering.clusters));
-    }
+    // Update the image gallery
+    updateImageGallery(cluster.getClusterByNumber(params.clustering.clusters));
 }
 
 function updateImageGallery(array) {
-    // Checks if it has a parent document
-    if(window.location !== window.parent.location) {
-        // Container of photo galleries
-        var container = parent.document.getElementById("myCluster"); 
-        var arrayGallery = [];
+    // Container of photo galleries
+    var container = document.getElementById("myCluster"); 
+    var arrayGallery = [];
 
-        // Create a photo gallery for each cluster
-        array.forEach(cluster => {
-            // Compute the border position that will have the cluster
-            var position = getBorderPosition(cluster.position);
-            // Create cluster based on the number of elements
-            if(cluster.object.length == 1) var gallery = handleOneCluster(cluster.object[0], position);
-            else if(cluster.object.length == 2) var gallery = handleTwoCluster(cluster.object, position);
-            else if(cluster.object.length > 2) var gallery = handleMultipleCluster(cluster.object, position);
-            // Append the photo gallery to the html main container 
-            if(gallery) {
-                if(Array.isArray(gallery)) arrayGallery.push(...gallery); 
-                else arrayGallery.push(gallery);
+    // Create a photo gallery for each cluster
+    array.forEach(cluster => {
+        // Compute the border position that will have the cluster
+        var position = getBorderPosition(cluster.position);
+        // Create cluster based on the number of elements
+        if(cluster.object.length == 1) var gallery = handleOneCluster(cluster.object[0], position);
+        else if(cluster.object.length == 2) var gallery = handleTwoCluster(cluster.object, position);
+        //else if(cluster.object.length > 2) var gallery = handleMultipleCluster(cluster.object, position);
+        // Append the photo gallery to the html main container 
+        if(gallery) {
+            if(Array.isArray(gallery)) {
+                arrayGallery.push(...gallery);
+                gallery.forEach(g => {if(g.new) container.appendChild(g)}); 
+            }else {
+                arrayGallery.push(gallery);
                 if(gallery.new) container.appendChild(gallery);
             }
-        });
+        }
+    });
 
-        // Filter the elements that should not be in the screen anymore
-        var remove = Array.from(container.children).filter(item => !arrayGallery.includes(item));
-        remove.forEach(item => container.removeChild(item));
-    }
+    // Filter the elements that should not be in the screen anymore
+    var remove = Array.from(container.children).filter(item => !arrayGallery.includes(item));
+    remove.forEach(item => container.removeChild(item));
 }
 
 /* Handling ------------------------------------------ */
@@ -92,11 +91,13 @@ function handleOneCluster(image, position) {
     if(marker) selected = marker.name == image.camera.name ? marker.name == image.camera.name : selected; 
     var visible = image.visible;
     // Check first if the image is already been displayed   
-    var img = parent.document.getElementById(image.camera.name); 
+    var img = document.getElementById(image.camera.name); 
 
     // If the image already exists, then just move it
     if(img && img.parentElement.size == 1) {
+        // Update the border color of the image
         img.style.setProperty('border-color', `#${markerMaterials[image.camera.name].color.getHexString()}`, 'important');
+        // Update the container
         var container = img.parentElement;
         setBorder(container, selected);
         setOpacity(container, visible);
@@ -110,6 +111,8 @@ function handleOneCluster(image, position) {
     } else {
         // Container to hold both images
         var container = document.createElement('div'); 
+
+        // If there is a cluster with this image, start it but at the same psotion
         if(img) {
             if(img.parentElement.size && img.parentElement.size < 3) position = img.parentElement.position;
             else position = img.parentElement.parentElement.position;
@@ -123,8 +126,8 @@ function handleOneCluster(image, position) {
         img.style.height = '100%';
 
         img.onload = function () { 
+            container.setAttribute('class', 'w3-round w3-col w3-center w3-border gallery');
             setGalleryPosition(container, position, img.naturalWidth, img.naturalHeight, selected);
-            container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-black w3-border-black cluster');
             setBorder(container, selected);
             setOpacity(container, visible);
             container.appendChild(img);
@@ -138,7 +141,7 @@ function handleOneCluster(image, position) {
 function handleTwoCluster(image, position) {
     // Check first if the images are already displayed in the scene
     var img = image.map(i => {
-        var item = parent.document.getElementById(i.camera.name);
+        var item = document.getElementById(i.camera.name);
         if(item) item.style.setProperty('border-color', `#${markerMaterials[i.camera.name].color.getHexString()}`, 'important');
         return item;
     }); 
@@ -168,10 +171,9 @@ function handleTwoCluster(image, position) {
         setBorder(container, selected);
         setOpacity(container, visible);
         var finalPosition = getFinalPosition(container, position);
+        var orientation = finalPosition.orientation == "left" || finalPosition.orientation == "right";
         container.position = finalPosition;
         container.new = false;
-
-        var orientation = finalPosition.orientation == "left" || finalPosition.orientation == "right";
         
         img.forEach(item => {
             size = getFinalSize(size, item);
@@ -233,7 +235,7 @@ function handleTwoCluster(image, position) {
                 var s = orientation ? size.vertical : size.horizontal;
 
                 setGalleryPosition(container, position, s.width, s.height, selected, scale);
-                container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-black w3-border-black cluster');
+                container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-black w3-border-black gallery');
                 setBorder(container, selected);
                 setOpacity(container, visible);
                 img.forEach(i => container.appendChild(i));
@@ -256,7 +258,7 @@ function handleMultipleCluster(image, position) {
 
     // Check first if the images are already been displayed 
     var img = image.map(i => {
-        var item = parent.document.getElementById(i.camera.name);
+        var item = document.getElementById(i.camera.name);
         if(item) item.style.setProperty('border-color', `#${markerMaterials[i.camera.name].color.getHexString()}`, 'important');
         return item;
     }); 
@@ -332,7 +334,7 @@ function handleMultipleCluster(image, position) {
 
             if(counter == img.length) {
                 setGalleryPosition(container, position, 0.75*bigImg.naturalWidth + 0.25*maxWidth, 0.75*bigImg.naturalHeight, selected);
-                container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-black w3-border-black cluster');
+                container.setAttribute('class', 'w3-round w3-col w3-center w3-border w3-black w3-border-black gallery');
                 setBorder(container, selected);
                 setOpacity(container, visible);
                 container.style.display = 'flex';
@@ -348,7 +350,7 @@ function handleMultipleCluster(image, position) {
 }
 
 function handleGalleryImage(image, event = true, bigImage = undefined) {
-    var img = parent.document.createElement('img');
+    var img = document.createElement('img');
     var color =  markerMaterials[image.camera.name].color;
     img.src = image.url || 'data/uv.jpg';
     img.setAttribute('id', image.camera.name);
@@ -432,6 +434,8 @@ function get2DPosition(point, width, height) {
 function getBorderPosition(p) {
     // Compute the screen position for the cluster and gets the border position
     // of the cluster if it is outside the canvas.
+    const width = renderer.domElement.width;
+    const height = renderer.domElement.height;
     var screenPosition = get2DPosition(p, width, height)
         .max(new THREE.Vector2()).min(new THREE.Vector2(width, height)); 
 
@@ -449,17 +453,15 @@ function getBorderPosition(p) {
 function getAddPosition(orientation, margin, w, h, selected) {
     const widthHalf = w/2, heightHalf = h/2;
 
-    //if(selected) return new THREE.Vector2(margin.width - widthHalf, margin.height - heightHalf);
-
     switch (orientation) {
         case 'left':
             return new THREE.Vector2(Math.max(0, margin.width - w), margin.height - heightHalf);
         case 'right':
-            if(selected) return new THREE.Vector2(margin.width - Math.abs(w - margin.width), margin.height - heightHalf);
-            else return new THREE.Vector2(margin.width, margin.height - heightHalf);
+            //if(selected) return new THREE.Vector2(margin.width - Math.abs(w - margin.width), margin.height - heightHalf);
+            return new THREE.Vector2(margin.width, margin.height - heightHalf);
         case 'bottom':
-            if(selected) return new THREE.Vector2(margin.width - widthHalf, margin.height - Math.abs(h - margin.height));
-            else return new THREE.Vector2(margin.width - widthHalf, margin.height);
+            //if(selected) return new THREE.Vector2(margin.width - widthHalf, margin.height - Math.abs(h - margin.height));
+            return new THREE.Vector2(margin.width - widthHalf, margin.height);
         case 'top':
             return new THREE.Vector2(margin.width - widthHalf, Math.max(0, margin.height - h));
         default:
@@ -482,7 +484,7 @@ function getPositionInTime(direction, key, container, position) {
         case 'down':
             finalPosition.point.add(new THREE.Vector2(0., step));
             if(container.position.orientation == position.orientation) {
-                if(position.point.y < finalPosition.point.y) finalPosition = { ...position };
+                if(position.point.y < finalPosition.point.y) finalPosition = {...position};
             } else if(border.size.height < finalPosition.point.y)  
                 finalPosition = {point: border.points[key].clone(), orientation: 'bottom'};
             break;
@@ -507,27 +509,34 @@ function getPositionInTime(direction, key, container, position) {
 }
 
 function getFinalPosition(container, position) {
-    var distance = {};
-    Object.keys(border.points).filter(k => k != "center").forEach(k => {
-        var d = border.points[k].clone().distanceTo(position.point.clone());
-        distance[k] = d;
-    });
+    if(container.position.point.equals(position.point)) return position;
+    else {
+        var distance = {};
+        Object.keys(border.points).filter(k => k != "center").forEach(k => {
+            var p = border.points[k].clone();
+            distance[k] = p.distanceTo(position.point.clone());
+        });
 
-    switch (container.position.orientation) {
-        case 'top':
-            if(distance["topright"] < distance["topleft"]) return getPositionInTime("right", "topright", container, position);
-            else return getPositionInTime("left", "topleft", container, position);
-        case 'right':
-            if(distance["topright"] < distance["bottomright"]) return getPositionInTime("up", "topright", container, position);
-            else return getPositionInTime("down", "bottomright", container, position);
-        case 'bottom':
-            if(distance["bottomleft"] < distance["bottomright"]) return getPositionInTime("left", "bottomleft", container, position);
-            else return getPositionInTime("right", "bottomright", container, position);
-        case 'left':
-            if(distance["bottomleft"] < distance["topleft"]) return getPositionInTime("down", "bottomleft", container, position);
-            else return getPositionInTime("up", "topleft", container, position);
-        default:
-            return position;
+        switch (container.position.orientation) {
+            case 'top':
+                if((container.position.orientation == position.orientation && container.position.point.x < position.point.x) 
+                    || (distance["topright"] < distance["topleft"])) return getPositionInTime("right", "topright", container, position);
+                else return getPositionInTime("left", "topleft", container, position);
+            case 'right':
+                if((container.position.orientation == position.orientation && container.position.point.y > position.point.y) 
+                    || (distance["topright"] < distance["bottomright"])) return getPositionInTime("up", "topright", container, position);
+                else return getPositionInTime("down", "bottomright", container, position);
+            case 'bottom':
+                if((container.position.orientation == position.orientation && container.position.point.x > position.point.x) 
+                    || (distance["bottomleft"] < distance["bottomright"])) return getPositionInTime("left", "bottomleft", container, position);
+                    else return getPositionInTime("right", "bottomright", container, position);
+            case 'left':
+                if((container.position.orientation == position.orientation && container.position.point.y < position.point.y) 
+                    || (distance["bottomleft"] < distance["topleft"])) return getPositionInTime("down", "bottomleft", container, position);
+                else return getPositionInTime("up", "topleft", container, position);
+            default:
+                return position;
+        }
     }
 }
 
@@ -548,11 +557,13 @@ function setGalleryPosition(container, position, width, height, selected, scale 
         scale = max == height ? margin.height / max : margin.width / max;
     }
 
-    if(selected) scale *= 1.1;
-    else scale *= 0.9;
+    if(selected) scale *= 1.;
+    else scale *= 0.8;
     var pos = position.point.clone().add(getAddPosition(position.orientation, margin, width*scale, height*scale, selected));
-    
-    var style = 'width:' + width*scale + 'px; height:' + height*scale + 'px; left:' + pos.x + 'px;top:' + pos.y+'px;';
+    var color = selected ? cselected : cnormal;
+
+    var style = `width:${width*scale}px; height:${height*scale}px; left:${pos.x}px; top:${pos.y}px;
+         background:#${color.getHexString()} !important; border-color:#${color.getHexString()} !important;`;
     if(position.orientation == 'top' || position.orientation == 'bottom') container.setAttribute('style', style + ' display: flex;');
     else container.setAttribute('style', style);
 }

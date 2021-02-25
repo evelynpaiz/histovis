@@ -326,8 +326,9 @@ function onDocumentMouseDblClick(event) {
 function saveMouseCoords(event) {
     // calculate mouse position in normalized device coordinates
     // (-1 to +1) for both components
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    var rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / (rect.right - rect.left)) * 2 - 1;
+    mouse.y = - (( event.clientY - rect.top) / (rect.bottom - rect.top)) * 2 + 1;
 }
 
 function getIntersectedObject(event) {

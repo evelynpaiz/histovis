@@ -21,154 +21,148 @@ initTimeline();
 
 /* Init ---------------------------------------------- */
 function initTimeline() {
-    if(window.location !== window.parent.location) {
-        // Stablish a zoom level of 1
-        tZoom = d3.zoomIdentity; 
+    // Stablish a zoom level of 1
+    tZoom = d3.zoomIdentity; 
 
-        // Set the dimensions and margins of the graph
-        var container = parent.document.getElementById("myTimeline");
-        container.innerHTML = "";
-        const size = {w: container.clientWidth, h: container.clientHeight};
+    // Set the dimensions and margins of the graph
+    var container = document.getElementById("myTimeline");
+    container.innerHTML = "";
+    const size = {w: container.clientWidth, h: container.clientHeight};
 
-        tMargin = {top: 0, right: 35, bottom: 25, left: 35};
-        tWidth = size.w - tMargin.left - tMargin.right;
-        tHeight = size.h - tMargin.top - tMargin.bottom;
+    tMargin = {top: 0, right: 35, bottom: 25, left: 35};
+    tWidth = size.w - tMargin.left - tMargin.right;
+    tHeight = size.h - tMargin.top - tMargin.bottom;
 
-        // Append the svg object to the body of the page
-        svg = d3.select(container)
-        .append("svg")
-        .attr("preserveAspectRatio", "xMinYMin meet")
-        .attr("viewBox", `0 0 ${size.w} ${size.h}`)
-        .attr('opacity', 0)
-        .classed("svg-content-responsive", true)
-        .call(zoom);
+    // Append the svg object to the body of the page
+    svg = d3.select(container)
+    .append("svg")
+    .attr("preserveAspectRatio", "xMinYMin meet")
+    .attr("viewBox", `0 0 ${size.w} ${size.h}`)
+    .attr('opacity', 0)
+    .classed("svg-content-responsive", true)
+    .call(zoom);
 
-        // Translate this svg element to leave some margin.
-        const g = svg.append("g")
-        .attr("transform", `translate(${tMargin.left}, ${tMargin.top})`);
+    // Translate this svg element to leave some margin.
+    const g = svg.append("g")
+    .attr("transform", `translate(${tMargin.left}, ${tMargin.top})`);
 
-        // Scale and axis
-        xScale = d3.scaleTime()
-            // This is the corresponding value I want in pixel
-            .range([0, tWidth]);                         
+    // Scale and axis
+    xScale = d3.scaleTime()
+        // This is the corresponding value I want in pixel
+        .range([0, tWidth]);                         
 
-        yScale = d3.scaleLinear()
-            .range([tHeight, 0]);
+    yScale = d3.scaleLinear()
+        .range([tHeight, 0]);
 
-        xAxis = d3.axisBottom()
-            .scale(xScale)
-            .tickFormat(dynamicDateFormat);
+    xAxis = d3.axisBottom()
+        .scale(xScale)
+        .tickFormat(dynamicDateFormat);
 
-        zoomScale = xScale;
+    zoomScale = xScale;
 
-        g.append('g')
-            .attr("class", "x-axis")
-            .attr('transform', `translate(0, ${tHeight + 10})`)
-            .call(xAxis);
+    g.append('g')
+        .attr("class", "x-axis")
+        .attr('transform', `translate(0, ${tHeight + 10})`)
+        .call(xAxis);
 
-        // Add a clippath (everything out of this area won't be drawn)
-        g.append("defs").append("clipPath")
-            .attr("id", "clip")
-            .append("rect")
-            .attr("width", tWidth)
-            .attr("height", tHeight + 15)
-            .attr("x", 0)
-            .attr("y", 0);
+    // Add a clippath (everything out of this area won't be drawn)
+    g.append("defs").append("clipPath")
+        .attr("id", "clip")
+        .append("rect")
+        .attr("width", tWidth)
+        .attr("height", tHeight + 15)
+        .attr("x", 0)
+        .attr("y", 0);
 
-        // Bars
-        g.append('g')
-            .attr("class", "chart")
-            .attr("clip-path", "url(#clip)");
+    // Bars
+    g.append('g')
+        .attr("class", "chart")
+        .attr("clip-path", "url(#clip)");
 
-        // Append brush
-        brush = d3.brushX()
-        .handleSize(8)
-        .extent([[0, tHeight], [tWidth, tHeight + 10]])
-        .on('start brush end', brushing);
+    // Append brush
+    brush = d3.brushX()
+    .handleSize(8)
+    .extent([[0, tHeight], [tWidth, tHeight + 10]])
+    .on('start brush end', brushing);
 
-        const gBrush = g.append('g')
-            .attr("class", "brush")
-            .attr("clip-path", "url(#clip)");
+    const gBrush = g.append('g')
+        .attr("class", "brush")
+        .attr("clip-path", "url(#clip)");
 
-        // Custom handlers
-        const gHandles = gBrush.selectAll('g.handles')
-            .data(['handle--o', 'handle--e'])
-            .enter()
-            .append('g')
-            .attr('class', d => `handles ${d}`)
-            .attr('fill', colors.handle);
+    // Custom handlers
+    const gHandles = gBrush.selectAll('g.handles')
+        .data(['handle--o', 'handle--e'])
+        .enter()
+        .append('g')
+        .attr('class', d => `handles ${d}`)
+        .attr('fill', colors.handle);
 
-        // Label
-        gHandles.selectAll('text')
-            .data(d => [d])
-            .enter()
-            .append('text')
-            .attr('text-anchor', 'middle')
-            .attr('dy', 10);
+    // Label
+    gHandles.selectAll('text')
+        .data(d => [d])
+        .enter()
+        .append('text')
+        .attr('text-anchor', 'middle')
+        .attr('dy', 10);
 
-        // Triangle
-        var triangle = d3.symbol()
-            .size(50)
-            .type(d3.symbolTriangle);
+    // Triangle
+    var triangle = d3.symbol()
+        .size(50)
+        .type(d3.symbolTriangle);
 
-        gHandles.selectAll('.triangle')
-            .data(d => [d])
-            .enter()
-            .append('path')
-            .attr('class', d => `triangle ${d}`)
-            .attr('d', triangle)
-            .attr('transform', d => {
-                const x = d == 'handle--o' ? -6 : 6,
-                    rot = d == 'handle--o' ? -90 : 90;
-                return `translate(${x}, ${size.h / 2}) rotate(${rot})`;
-            });
+    gHandles.selectAll('.triangle')
+        .data(d => [d])
+        .enter()
+        .append('path')
+        .attr('class', d => `triangle ${d}`)
+        .attr('d', triangle)
+        .attr('transform', d => {
+            const x = d == 'handle--o' ? -6 : 6,
+                rot = d == 'handle--o' ? -90 : 90;
+            return `translate(${x}, ${size.h / 2}) rotate(${rot})`;
+        });
 
-        // Visible Line
-        gHandles.selectAll('.line')
-            .data(d => [d])
-            .enter()
-            .append('line')
-            .attr('class', d => `line ${d}`)
-            .attr('x1', 0)
-            .attr('y1', 15)
-            .attr('x2', 0)
-            .attr('y2', size.h - 15)
-            .attr('stroke', colors.handle);
-    }
+    // Visible Line
+    gHandles.selectAll('.line')
+        .data(d => [d])
+        .enter()
+        .append('line')
+        .attr('class', d => `line ${d}`)
+        .attr('x1', 0)
+        .attr('y1', 15)
+        .attr('x2', 0)
+        .attr('y2', size.h - 15)
+        .attr('stroke', colors.handle);
 }
 
 /* Updates ------------------------------------------- */
 function updateTimeline(updateSelection = true) {
-    // Checks if it has a parent document
-    if(window.location !== window.parent.location) {
-        if(Object.values(dates).length < 1) {
-            // Update the graph
-            svg.attr('opacity', 0);
-        } else {
-            var min =  new Date(Math.min.apply(null, Object.values(dates).map(d => {return d.start})));
-            var max = new Date(Math.max.apply(null, Object.values(dates).map(d => {return d.end})));
+    if(Object.values(dates).length < 1) {
+        // Update the graph
+        svg.attr('opacity', 0);
+    } else {
+        var min =  new Date(Math.min.apply(null, Object.values(dates).map(d => {return d.start})));
+        var max = new Date(Math.max.apply(null, Object.values(dates).map(d => {return d.end})));
 
-            // Add one extra month of min and max 
-            min = new Date(min.getFullYear(), 0, 1);
-            max = new Date(max.getFullYear()+1, 0, 1);
+        // Add one extra month of min and max 
+        min = new Date(min.getFullYear(), 0, 1);
+        max = new Date(max.getFullYear()+1, 0, 1);
 
-            if(!startDate || !endDate || min.getTime() !== startDate.getTime() || max.getTime() !== endDate.getTime()) {
-                startDate = min; endDate = max;
+        if(!startDate || !endDate || min.getTime() !== startDate.getTime() || max.getTime() !== endDate.getTime()) {
+            startDate = min; endDate = max;
 
-                var dayArray = d3.scaleTime().domain([min, max]).ticks(d3.timeDay, 1);
-                var monthArray = d3.scaleTime().domain([min, max]).ticks(d3.timeMonth, 1);
-                var yearArray = d3.scaleTime().domain([min, max]).ticks(d3.timeYear, 1);
+            var dayArray = d3.scaleTime().domain([min, max]).ticks(d3.timeDay, 1);
+            var monthArray = d3.scaleTime().domain([min, max]).ticks(d3.timeMonth, 1);
+            var yearArray = d3.scaleTime().domain([min, max]).ticks(d3.timeYear, 1);
 
-                tData.day = generateData(dayArray);
-                tData.month = generateData(monthArray);
-                tData.year = generateData(yearArray);
+            tData.day = generateData(dayArray);
+            tData.month = generateData(monthArray);
+            tData.year = generateData(yearArray);
 
-                // Update the timeline
-                if(updateSelection) tSelection = d3.extent(getDataset(), d => d.date);
-                updateTimelineData();
-            }
+            // Update the timeline
+            if(updateSelection) tSelection = d3.extent(getDataset(), d => d.date);
+            updateTimelineData();
         }
-         
     }
 }
 
