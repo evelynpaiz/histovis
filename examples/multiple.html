@@ -91,6 +91,7 @@
         <script src="js/helper/clusterHelper.js"></script>
 
         <script src="https://d3js.org/d3.v4.js"></script>
+        <script src="https://d3js.org/d3-array.v2.min.js"></script>
         <script src="js/web/timeline.js"></script>
 
         <script>
@@ -397,7 +398,7 @@
                 // Update 
                 if(textureCamera.name == "" && cameras.children.length > 0) setCamera(getCamera(cameras.children[0]));
                 cameras.children.forEach(camera => {
-                    multipleTextureMaterial.setBorder(camera, {color: markerMaterials[camera.name].color});
+                    multipleTextureMaterial.setBorder(camera, {visible: cameras.visible, color: markerMaterials[camera.name].color});
                 });
                 updateCluster(viewCamera);
                 updateTimeline();

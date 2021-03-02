@@ -67,12 +67,15 @@ function updateImageGallery(array) {
         // Create cluster based on the number of elements
         if(cluster.object.length == 1) var gallery = handleOneCluster(cluster.object[0], position);
         else if(cluster.object.length == 2) var gallery = handleTwoCluster(cluster.object, position);
-        //else if(cluster.object.length > 2) var gallery = handleMultipleCluster(cluster.object, position);
+        else if(cluster.object.length > 2) var gallery = handleMultipleCluster(cluster.object, position);
+
         // Append the photo gallery to the html main container 
         if(gallery) {
             if(Array.isArray(gallery)) {
-                arrayGallery.push(...gallery);
-                gallery.forEach(g => {if(g.new) container.appendChild(g)}); 
+                gallery.forEach(g => {
+                    arrayGallery.push(g);
+                    if(g.new) container.appendChild(g);
+                }); 
             }else {
                 arrayGallery.push(gallery);
                 if(gallery.new) container.appendChild(gallery);
@@ -92,7 +95,6 @@ function handleOneCluster(image, position) {
     var visible = image.visible;
     // Check first if the image is already been displayed   
     var img = document.getElementById(image.camera.name); 
-
     // If the image already exists, then just move it
     if(img && img.parentElement.size == 1) {
         // Update the border color of the image
@@ -117,23 +119,32 @@ function handleOneCluster(image, position) {
             if(img.parentElement.size && img.parentElement.size < 3) position = img.parentElement.position;
             else position = img.parentElement.parentElement.position;
         }
+
+        container.new = true;
         container.position = position;
         container.size = 1;
-        container.new = true;
 
         img = handleGalleryImage(image);
         img.style.width = '100%';
         img.style.height = '100%';
 
-        img.onload = function () { 
+        function loadDataOneCluster() {
             container.setAttribute('class', 'w3-round w3-col w3-center w3-border gallery');
             setGalleryPosition(container, position, img.naturalWidth, img.naturalHeight, selected);
             setBorder(container, selected);
             setOpacity(container, visible);
             container.appendChild(img);
             img.style.display = 'block';
-        };
-    
+        }
+
+        if(img.complete) {
+            loadDataOneCluster();
+        } else {
+            img.onload = function () { 
+                loadDataOneCluster();
+            };
+        }
+        
         return container;
     }
 }
@@ -268,7 +279,7 @@ function handleMultipleCluster(image, position) {
     var counter = 0; var maxWidth = 0; var maxHeight = 0;
     
     if(img.every(item => {return item}) && img.every(item => {
-        return item.parentElement == first.parentElement}) && first.parentElement.parentElement.size > 2) {
+        return item.parentElement == first.parentElement}) && first.parentElement.parentElement.size == image.length) {
         // Update the container 
         var container = first.parentElement.parentElement;
         setBorder(container, selected);
@@ -308,7 +319,7 @@ function handleMultipleCluster(image, position) {
     // Container to hold both images
     var container = document.createElement('div'); 
     container.position = position;
-    container.size = 3;
+    container.size = image.length;
     container.new = true;
 
     var bigImg = handleGalleryImage(image[0]);

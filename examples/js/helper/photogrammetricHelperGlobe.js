@@ -164,6 +164,8 @@ function loadJSONGlobe(material, path, file, c) {
             }
             loadOrientedImageGroup(json.groupimg[image], 'img/'+image+'.jpg', source, image);
             });
+
+        setCamera(getCamera(viewCamera));
     });
 }
 

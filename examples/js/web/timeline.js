@@ -2,7 +2,7 @@
 var svg, brush;
 var xAxis, xScale, yScale, zoomScale, tSelection;
 var tMargin, tHeight, tWidth, tZoom;
-var tData = {}, startDate, endDate;
+var tData, startDate, endDate;
 
 var colors = {handle: "#f27793", bar: "#009688"};
 
@@ -73,7 +73,7 @@ function initTimeline() {
         .attr("height", tHeight + 15)
         .attr("x", 0)
         .attr("y", 0);
-
+        
     // Bars
     g.append('g')
         .attr("class", "chart")
@@ -151,13 +151,14 @@ function updateTimeline(updateSelection = true) {
         if(!startDate || !endDate || min.getTime() !== startDate.getTime() || max.getTime() !== endDate.getTime()) {
             startDate = min; endDate = max;
 
-            var dayArray = d3.scaleTime().domain([min, max]).ticks(d3.timeDay, 1);
-            var monthArray = d3.scaleTime().domain([min, max]).ticks(d3.timeMonth, 1);
-            var yearArray = d3.scaleTime().domain([min, max]).ticks(d3.timeYear, 1);
-
-            tData.day = generateData(dayArray);
-            tData.month = generateData(monthArray);
-            tData.year = generateData(yearArray);
+            // Create an array with all the dates and separete them into parent-children (year - month - day)
+            var array = d3.scaleTime().domain([min, max]).ticks(d3.timeDay, 1);
+            var data = d3.rollup(generateData(array), v => d3.sum(v, d => d.value),
+                d => d3.timeYear(d.date), d => d3.timeMonth(d.date), d => d3.timeDay(d.date));
+            // Create an hierarchy with the existing data
+            tData = d3.hierarchy([null, data], ([key, value]) => value.size && Array.from(value))
+                .sum(([key, value]) => value)
+                .eachAfter(d => d.date = d.data[0]);
 
             // Update the timeline
             if(updateSelection) tSelection = d3.extent(getDataset(), d => d.date);
@@ -185,11 +186,12 @@ function updateTimelineData() {
     zoomScale.domain([start, end]);
 
     // Find the correct y scale
-    //var array = [...tData.day, ...tData.month, ...tData.year];
-    yScale.domain(d3.extent(data, d => d.value));
+    yScale.domain([0, d3.max(tData.children, d => d.value)]);
 
     svg.selectAll(".x-axis")
         .call(xAxis.scale(zoomScale));
+
+    svg.select(".chart").datum(tData);
 
     // Update the bar chart
     var bars = svg.select(".chart")
@@ -200,7 +202,7 @@ function updateTimelineData() {
         .append('rect')
         .attr('class', 'bar')
         .merge(bars) // get the already existing elements as well
-        .transition()
+        //.transition()
         .attr('x', d => xScale(d.date))
         .attr('y', d => yScale(d.value))
         .attr("width", d => Math.abs(xScale(time.offset(d.date, 1)) - xScale(d.date) - 2))
@@ -209,6 +211,28 @@ function updateTimelineData() {
         .attr('opacity', 1);
 
     bars.exit().remove();
+    /*
+    var barGroup = svg.select(".chart")
+        .selectAll('rect')
+        .attr('opacity', 0)
+        .data(data)
+        
+    barGroup.exit().remove();
+
+    var enterGroup = barGroup.enter()
+        .append('rect')
+        .attr('class', 'bar')
+        .attr('x', d => xScale(d.date))
+        .attr('y', d => yScale(d.value))
+        .attr("width", d => Math.abs(xScale(time.offset(d.date, 1)) - xScale(d.date) - 2))
+        .attr('height', d => tHeight - yScale(d.value))
+        .attr('fill', colors.bar);
+        
+    var mergedGroup = enterGroup.merge(barGroup)
+        .transition()
+        .duration(500)
+        .attr('opacity', 1);
+    */
 
     // Update the brushing
     svg.select(".brush")
@@ -234,9 +258,12 @@ function updateViewedCameras(start, end) {
 
 /* Gets ---------------------------------------------- */
 function getDataset() {
-    if(tZoom.k < 2.5) return tData.year;
-    else if(tZoom.k < 40) return tData.month;
-    else return tData.day;
+    var depth;
+    if(tZoom.k < 2.5) depth = 1;
+    else if(tZoom.k < 40) depth = 2;
+    else depth = 3;
+
+    return tData.descendants().filter(n => n.depth == depth);
 }
 
 function getTimeScale() {
