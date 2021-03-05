@@ -1,6 +1,6 @@
 /* ---------------------- Variables ---------------------- */
 var svg, brush;
-var xAxis, xScale, yScale, zoomScale, tSelection;
+var xAxis, xScale, xBand, yScale, zoomScale, tSelection;
 var tMargin, tHeight, tWidth, tZoom;
 var tData, startDate, endDate;
 
@@ -29,7 +29,7 @@ function initTimeline() {
     container.innerHTML = "";
     const size = {w: container.clientWidth, h: container.clientHeight};
 
-    tMargin = {top: 0, right: 35, bottom: 25, left: 35};
+    tMargin = {top: 10, right: 35, bottom: 25, left: 35};
     tWidth = size.w - tMargin.left - tMargin.right;
     tHeight = size.h - tMargin.top - tMargin.bottom;
 
@@ -70,9 +70,9 @@ function initTimeline() {
         .attr("id", "clip")
         .append("rect")
         .attr("width", tWidth)
-        .attr("height", tHeight + 15)
+        .attr("height", tHeight + 30)
         .attr("x", 0)
-        .attr("y", 0);
+        .attr("y", -10);
         
     // Bars
     g.append('g')
@@ -103,11 +103,11 @@ function initTimeline() {
         .enter()
         .append('text')
         .attr('text-anchor', 'middle')
-        .attr('dy', 10);
+        .attr('dy', 0);
 
     // Triangle
     var triangle = d3.symbol()
-        .size(50)
+        .size(60)
         .type(d3.symbolTriangle);
 
     gHandles.selectAll('.triangle')
@@ -115,11 +115,12 @@ function initTimeline() {
         .enter()
         .append('path')
         .attr('class', d => `triangle ${d}`)
+        .attr('stroke', 'white')
         .attr('d', triangle)
         .attr('transform', d => {
-            const x = d == 'handle--o' ? -6 : 6,
+            const x = d == 'handle--o' ? -4 : 4,
                 rot = d == 'handle--o' ? -90 : 90;
-            return `translate(${x}, ${size.h / 2}) rotate(${rot})`;
+            return `translate(${x}, ${tHeight+5}) rotate(${rot})`;
         });
 
     // Visible Line
@@ -129,9 +130,9 @@ function initTimeline() {
         .append('line')
         .attr('class', d => `line ${d}`)
         .attr('x1', 0)
-        .attr('y1', 15)
+        .attr('y1', 5)
         .attr('x2', 0)
-        .attr('y2', size.h - 15)
+        .attr('y2', size.h - 25)
         .attr('stroke', colors.handle);
 }
 
@@ -203,9 +204,9 @@ function updateTimelineData() {
         .attr('class', 'bar')
         .merge(bars) // get the already existing elements as well
         //.transition()
-        .attr('x', d => xScale(d.date))
+        .attr('x', d => xScale(d.date) - getBarWidth(xScale, time, d.date)/2)
         .attr('y', d => yScale(d.value))
-        .attr("width", d => Math.abs(xScale(time.offset(d.date, 1)) - xScale(d.date) - 2))
+        .attr("width", d => getBarWidth(xScale, time, d.date))
         .attr('height', d => tHeight - yScale(d.value))
         .attr('fill', colors.bar)
         .attr('opacity', 1);
@@ -237,7 +238,7 @@ function updateTimelineData() {
     // Update the brushing
     svg.select(".brush")
         .call(brush)
-        .call(brush.move, [xScale(tSelection[0]), xScale(time.offset(tSelection[1], 1))]);
+        .call(brush.move, snappedSelection(xScale, getTimeScale(), tSelection));
 }
 
 function updateViewedCameras(start, end) {
@@ -295,6 +296,10 @@ function generateData(array) {
     });
 }
 
+function getBarWidth(scale, time, date) {
+    return Math.abs(scale(time.offset(date, 1)) - scale(date) - 4)
+}
+
 /* Dates --------------------------------------------- */
 function difference(date1, date2) {  
     var difference = Math.abs(date2 - date1);
@@ -333,18 +338,18 @@ function zoom(svg) {
                 .call(xAxis.scale(zoomScale));
 
             svg.selectAll(".bar")
-                .attr("x", d => zoomScale(d.date))
-                .attr("width", d => Math.abs(zoomScale(time.offset(d.date, 1)) - zoomScale(d.date) - 2));
+                .attr("x", d => zoomScale(d.date) - getBarWidth(zoomScale, time, d.date)/2)
+                .attr("width", d => getBarWidth(zoomScale, time, d.date));
     
             // Update the brushing
             svg.select(".brush")
                 .call(brush)
-                .call(brush.move, [zoomScale(tSelection[0]), zoomScale(tSelection[1])]);
+                .call(brush.move, snappedSelection(zoomScale, time, tSelection));
             
             // Move handlers
             svg.selectAll('g.handles')
                 .attr('transform', d => {
-                const x = d == 'handle--o' ? zoomScale(tSelection[0]) : zoomScale(tSelection[1]);
+                const x = d == 'handle--o' ? zoomScale(d3.min(tSelection)) : zoomScale(d3.max(tSelection));
                 return `translate(${x}, 0)`;
                 });
         }
@@ -354,43 +359,62 @@ function zoom(svg) {
 function brushing() {
     var data = getDataset();
     var time = getTimeScale();
-
-    if(data && (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom")) return; // ignore brush-by-zoom
+    
+    if(!data || (!d3.event.selection && !d3.event.sourceEvent)) return; // ignore brush-by-zoom
     const s0 = d3.event.selection,
-          d0 = [zoomScale.invert(s0[0]), zoomScale.invert(s0[1])],
-          d1 = data.slice(d3.bisector(d => d.date).left(data, d0[0]), d3.bisector(d => d.date).right(data, d0[1]));
+        d0 = s0.map(d => zoomScale.invert(d));
 
-    //if (d3.event.sourceEvent && d3.event.type === 'end') {
-        //d0 = [zoomScale(time.offset(d0[0], 1)), zoomScale(time.offset(d0[1], 1))];
-        //d3.select(this).transition().call(d3.event.target.move, s1);
-    //}
+    const s1 = s0.map(d => {
+            var result = d+getBarWidth(zoomScale, time, zoomScale.invert(d))/2;
+            if(d == d3.min(s0)) result += 4;
+            return result;
+        }),
+        d1 = filteredDomain(zoomScale, time, s1),
+        d1Data = data.slice(d3.bisector(d => d.date).left(data, d3.min(d1)), d3.bisector(d => d.date).right(data, d3.max(d1)));
+    
+    if (d3.event.sourceEvent && d3.event.type === 'end') {
+        d3.select(this).transition().call(brush.move, snappedSelection(zoomScale, time, d1));
+    }
 
     // Update bars
     svg.selectAll('.bar')
-        .attr('opacity', d => d1.includes(d) ? 1 : 0.2);
+        .attr('opacity', d => d1Data.includes(d) ? 1 : 0.2);
 
     // Move handlers
     svg.selectAll('g.handles')
         .attr('transform', d => {
-            const x = d == 'handle--o' ? zoomScale(d0[0]) : zoomScale(d0[1]);
+            const x = d == 'handle--o' ? zoomScale(d3.min(d0)) : zoomScale(d3.max(d0));
             return `translate(${x}, 0)`;
         });
 
     // Update labels
     svg.selectAll('g.handles').selectAll('text')
-        .attr('dx', d0.length > 1 ? 0 : 6)
+        .attr('dx', d1.length > 1 ? 0 : 6)
         .text((d, i) => {
             let year;
-            if (d0.length > 1) {
-                year = d == 'handle--o' ? yearFormat(d3.min(d0)) : yearFormat(d3.max(d0));
+            if (d1.length > 1) {
+                year = d == 'handle--o' ? yearFormat(d3.min(d1)) : yearFormat(d3.max(d1));
             } else {
-                year = d == 'handle--o' ? yearFormat(d3.min(d0)) : '';
+                year = d == 'handle--o' ? yearFormat(d3.min(d1)) : '';
             } 
             return year;
         });
 
     // Update the cameras
-    updateViewedCameras(d0[0], d0[1]);
+    updateViewedCameras(d3.min(d1), time.offset(d3.max(d1),1));
 
-    tSelection = d0;
+    tSelection = d1;
+}
+
+function snappedSelection(scale, time, domain) {
+    var min = d3.min(domain),
+        max = time.offset(d3.max(domain),1);
+    return [min, max].map(d => scale(d)-getBarWidth(scale, time, d)/2-2);
+}
+
+function filteredDomain(scale, time, domain) {
+    const floor = domain.map(d => time.floor(scale.invert(d))),
+        ceil = domain.map(d => time.ceil(scale.invert(d)));
+
+    return [d3.min(floor), time.offset(d3.max(ceil), -1)];
 }

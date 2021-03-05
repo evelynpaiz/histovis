@@ -40,3 +40,7 @@ svg .domain {
 svg .tick text {
  font-weight: normal;
 }
+
+svg .drop {
+  stroke-width: 10px;
+}
