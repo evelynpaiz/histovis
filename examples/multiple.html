@@ -25,7 +25,12 @@
         <div id="myContent" class="w3-display-container w3-light-gray w3-card">
             <!-- Canvas -->
             <div id="viewerDiv" class = "w3-card w3-light-gray w3-margin-bottom"></div>
+            <!-- Loading Screen -->
+            <div id="loadingScreen" class = "w3-card w3-black w3-margin-bottom">
+                <div id="loader"></div>
+            </div>
 
+            <!-- Clustering -->
             <div id="myCluster"></div>
         </div>
 
@@ -104,6 +109,7 @@
             function init() {
                 // HTML container for the rendering scene
                 var container = document.getElementById('viewerDiv');
+                loadingScreen = document.getElementById('loadingScreen');
 
                 // Sizes
                 width = window.innerWidth;
@@ -129,6 +135,14 @@
                 cameras.visible = true;
                 scene.add(viewCamera);
                 scene.add(cameras);
+
+                ['pop','push','reverse','shift','unshift','splice','sort','remove'].forEach((m)=> {
+                    cameras.children[m] = function() {
+                        var res = Array.prototype[m].apply(cameras.children, arguments);  // call normal behaviour
+                        updateTimeline();
+                        return res;
+                    }
+                });
                 
                 // Materials
                 basicMaterial = initBasicMaterial();
@@ -177,49 +191,51 @@
 
                 // Available collections
                 collections = {
-                    Database1: {
+                    IGNFrejus: {
                         selection: false,
                         color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
                         cameras: [],
                         load: function() {
-                            var name = 'Database1';
-                            markerMaterialUniforms.color = collections[name].color;
-                            params.collection = 'collections/ign_nanterre/';
-                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data1.json', name);
+                            params.collection.name = 'IGNFrejus';
+                            markerMaterialUniforms.color = collections[params.collection.name].color;
+                            params.collection.url = 'collections/ign_frejus/';
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index.json', params.collection.name);
+                            params.interpolation.fitCamera = true;
                         },
                         unload: function() {
-                            var name = 'Database1';
-                            params.collection = 'collections/ign_nanterre/';
+                            var name = 'IGNFrejus';
                             unloadJSONGlobe(name);
                         }
                     },
-                    Database2: {
+                    IGNNanterreBridge: {
                         selection: false,
                         color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
                         cameras: [],
                         load: function() {
-                            var name = 'Database2';
-                            markerMaterialUniforms.color = collections[name].color;
-                            params.collection = 'collections/ign_nanterre/';
-                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data2.json', name);
+                            params.collection.name = 'IGNNanterreBridge';
+                            markerMaterialUniforms.color = collections[params.collection.name].color;
+                            params.collection.url = 'collections/ign_nanterre/';
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-bridge.json', params.collection.name);
+                            params.interpolation.fitCamera = true;
                         },
                         unload: function() {
-                            var name = 'Database2';
+                            var name = 'IGNNanterreBridge';
                             unloadJSONGlobe(name);
                         }
                     },
-                    Database3: {
+                    IGNNanterreBuilding: {
                         selection: false,
                         color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
                         cameras: [],
                         load: function() {
-                            var name = 'Database3';
-                            markerMaterialUniforms.color = collections[name].color;
-                            params.collection = 'collections/ign_nanterre/';
-                            loadJSONGlobe(multipleTextureMaterial, server + params.collection, 'index-data3.json', name);
+                            params.collection.name = 'IGNNanterreBuilding';
+                            markerMaterialUniforms.color = collections[params.collection.name].color;
+                            params.collection.url = 'collections/ign_nanterre/';
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-building.json', params.collection.name);
+                            params.interpolation.fitCamera = true;
                         },
                         unload: function() {
-                            var name = 'Database3';
+                            var name = 'IGNNanterreBuilding';
                             unloadJSONGlobe(name);
                         }
                     }
@@ -387,24 +403,29 @@
 
                     clusteringGUI.clusters.max(params.clustering.images);
                     clusteringGUI.clusters.setValue(Math.floor(params.clustering.clusters));
-                    
                 }
 
                 return gui;
             }
 
             function animate(timestamp) {
-                
-                // Update 
-                if(textureCamera.name == "" && cameras.children.length > 0) setCamera(getCamera(cameras.children[0]));
-                cameras.children.forEach(camera => {
-                    multipleTextureMaterial.setBorder(camera, {visible: cameras.visible, color: markerMaterials[camera.name].color});
-                });
-                updateCluster(viewCamera);
-                updateTimeline();
-                gui.updateGUI();
-                // Interpolate
-                interpolateCameraGlobe(timestamp);
+                // Check if everything has been loaded first
+                if(params.load.number != cameras.children.length) {
+                    loadingScreen.style.display = 'block';
+                }
+                else {
+                    loadingScreen.style.display = 'none';
+                    // Update 
+                    //if(textureCamera.name == "" && cameras.children.length > 0) setCamera(getCamera(cameras.children[0]));
+                    cameras.children.forEach(camera => {
+                        multipleTextureMaterial.setBorder(camera, {visible: cameras.visible, color: markerMaterials[camera.name].color});
+                    });
+                    updateCluster(viewCamera);
+                    //updateTimeline();
+                    gui.updateGUI();
+                    // Interpolate
+                    interpolateCameraGlobe(timestamp);
+                }
                 // Render
                 if(!globeRendering) view.notifyChange(true);
                 requestAnimationFrame(animate);

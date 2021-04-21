@@ -26,6 +26,7 @@ function updateCluster(camera) {
     Object.values(images).forEach(image => {   
         if(image.camera) {
             image.updatePoints([worldPlane, backgroundSphere]); 
+            //image.updatePoints(view.scene.children);
             if(image.camera.name == camera.name) image.distance = 0; // make the current visualized image the priority
             else image.updateDistance(origin);
         }
@@ -49,10 +50,11 @@ function updateCluster(camera) {
     filtered = filtered.filter((i, index) => (index < params.clustering.images));
 
     // Cluster objects
-    cluster.hcluster(filtered);
-
-    // Update the image gallery
-    updateImageGallery(cluster.getClusterByNumber(params.clustering.clusters));
+    if(filtered.every(image => image.projectedPoints["center"])) {
+        cluster.hcluster(filtered);
+        // Update the image gallery
+        updateImageGallery(cluster.getClusterByNumber(params.clustering.clusters));
+    }
 }
 
 function updateImageGallery(array) {
@@ -398,21 +400,42 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
     function onImageMouseOver() {
         marker = image.camera.children[0];
         scaleCameraHelper();
-        if(!marker.userData.selected){
-            multipleTextureMaterial.setCamera(image.camera);
+        if(!params.collection.overview) {
+            if(!marker.userData.selected){
+                multipleTextureMaterial.setCamera(image.camera);
+            }
+        } else {
+            multipleTextureMaterial.setBorder(image.camera, {showImage: true});
         }
     }
 
     function onImageMouseOut() {
         marker = image.camera.children[0];
         downscaleCameraHelper();
-        if(!marker.userData.selected) {
-            multipleTextureMaterial.removeCamera(image.camera);
+        if(!params.collection.overview) {
+            if(!marker.userData.selected) {
+                multipleTextureMaterial.removeCamera(image.camera);
+            }
+        } else {
+            multipleTextureMaterial.setBorder(image.camera, {showImage: false});
         }
         marker = new THREE.Group();
     }
 
     function onImageMouseClick() {
+        if(params.collection.overview) {
+            var cams = [];
+            collections[params.collection.name].cameras.forEach(name => {
+                const array = cameras.children;
+                const index = array.findIndex(cam => cam.name == name);
+                if(index > -1) {
+                    cams.push(array[(index + array.length) % array.length]);
+                }
+            });
+            cleanExtent(cams);
+            params.collection.overview = false;
+        }
+        
         marker = image.camera.children[0];
         if(!marker.userData.selected) {
             marker.userData.selected = true;
@@ -424,6 +447,19 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
     }
     
     function onImageMouseDblClick() {
+        if(params.collection.overview) {
+            var cams = [];
+            collections[params.collection.name].cameras.forEach(name => {
+                const array = cameras.children;
+                const index = array.findIndex(cam => cam.name == name);
+                if(index > -1) {
+                    cams.push(array[(index + array.length) % array.length]);
+                }
+            });
+            cleanExtent(cams);
+            params.collection.overview = false;
+        }
+
         marker = image.camera.children[0];
         setCamera(image.camera);
     }

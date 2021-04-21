@@ -18,6 +18,7 @@ function initGlobe(container, camera) {
 
     view = new itowns.GlobeView(container, placement, 
         {handleCollision: false, disableSkirt: false, noControls: true, camera: camera});
+    camera.zoom = 0.4;
 
     // Add color layers
     itowns.Fetcher.json('layers/Ortho.json').then(addColorLayerFromConfig);
@@ -148,32 +149,42 @@ function loadJSONGlobe(material, path, file, c) {
 
         updateEnvironmentGlobe();
 
-        if(json.ori && json.img) json.ori.forEach((orientationUrl, i) => {
-            if(c && collections[c].cameras) {
-                const match = orientationUrl.match(/Orientation-(.*)\.[\w\d]*\.xml/i);
-                var name = match ? match[1] : url;
-                collections[c].cameras.push(name);
-            }
-            loadOrientedImage(orientationUrl, json.img[i], source);
+        if(json.ori && json.img) {
+            params.load.number = json.img.length;
+            json.ori.forEach((orientationUrl, i) => {
+                if(c && collections[c].cameras) {
+                    const match = orientationUrl.match(/Orientation-(.*)\.[\w\d]*\.xml/i);
+                    var name = match ? match[1] : url;
+                    collections[c].cameras.push(name);
+                }
+                loadOrientedImage(orientationUrl, json.img[i], source);
             });
-            
+        }
 
-        if(json.groupimg) Object.keys(json.groupimg).forEach((image) => {
-            if(c && collections[c].cameras) {
-                collections[c].cameras.push(image);
-            }
-            loadOrientedImageGroup(json.groupimg[image], 'img/'+image+'.jpg', source, image);
+        if(json.groupimg) {
+            params.load.number = json.groupimg.length;
+            Object.keys(json.groupimg).forEach((image) => {
+                if(c && collections[c].cameras) {
+                    collections[c].cameras.push(image);
+                }
+                loadOrientedImageGroup(json.groupimg[image], 'img/'+image+'.jpg', source, image);
             });
+        }
 
-        setCamera(getCamera(viewCamera));
+        //setCamera(getCamera(viewCamera));
     });
 }
 
 function unloadJSONGlobe(c) {
     if(collections[c] && collections[c].cameras) {
         collections[c].cameras.forEach(name => {
-            var camera = getCameraByName(name);
-            if(camera) {
+            const nidex = names.findIndex(n => n == name);
+            if(nidex > -1) delete names[nidex];
+
+            const array = cameras.children;
+            const index = array.findIndex(cam => cam.name == name);
+            if(index > -1) {
+                var camera = array[(index + array.length) % array.length];
                 if(camera.name == textureCamera.name) {
                     const camera = new PhotogrammetricCamera();
                     prevCamera.set(camera);
@@ -183,12 +194,13 @@ function unloadJSONGlobe(c) {
                     textureCamera.copy(camera);
                 }
                 multipleTextureMaterial.removeCamera(camera);
-                cameras.remove(camera);
                 delete textures[name];
                 delete images[name];
                 delete dates[name];
+                cameras.remove(camera);
             }
         });
+        collections[c].cameras = [];
     }
 }
 

@@ -1,10 +1,10 @@
 /* ---------------------- Variables ---------------------- */
 var svg, brush;
-var xScale, yScale, zoomScale, xAxis, tSelection;
+var xAxis, xScale, xBand, yScale, zoomScale, tSelection;
 var tMargin, tHeight, tWidth, tZoom;
-var tData = {}, startDate, endDate;
+var tData, startDate, endDate;
 
-var colors = {handle: "#f27793", bar: "#009688", background: "#f1f1f1"};
+var colors = {handle: "#f27793", bar: "#009688"};
 
 var yearFormat = d3.timeFormat("%Y");
 var dynamicDateFormat = timeFormat([
@@ -29,7 +29,7 @@ function initTimeline() {
     container.innerHTML = "";
     const size = {w: container.clientWidth, h: container.clientHeight};
 
-    tMargin = {top: 20, right: 35, bottom: 20, left: 35};
+    tMargin = {top: 10, right: 35, bottom: 25, left: 35};
     tWidth = size.w - tMargin.left - tMargin.right;
     tHeight = size.h - tMargin.top - tMargin.bottom;
 
@@ -39,8 +39,8 @@ function initTimeline() {
     .attr("preserveAspectRatio", "xMinYMin meet")
     .attr("viewBox", `0 0 ${size.w} ${size.h}`)
     .attr('opacity', 0)
-    .classed("svg-content-responsive", true);
-    //.call(zoom);
+    .classed("svg-content-responsive", true)
+    .call(zoom);
 
     // Translate this svg element to leave some margin.
     const g = svg.append("g")
@@ -49,21 +49,20 @@ function initTimeline() {
     // Scale and axis
     xScale = d3.scaleTime()
         // This is the corresponding value I want in pixel
-        .range([0, tWidth]);    
+        .range([0, tWidth]);                         
 
     yScale = d3.scaleLinear()
-        .range([0, tHeight]);
+        .range([tHeight, 0]);
 
     xAxis = d3.axisBottom()
         .scale(xScale)
-        .ticks(d3.timeYear);
-        //.tickFormat(dynamicDateFormat);
+        .tickFormat(dynamicDateFormat);
 
     zoomScale = xScale;
 
     g.append('g')
         .attr("class", "x-axis")
-        .attr('transform', `translate(0, ${tHeight})`)
+        .attr('transform', `translate(0, ${tHeight + 10})`)
         .call(xAxis);
 
     // Add a clippath (everything out of this area won't be drawn)
@@ -71,9 +70,9 @@ function initTimeline() {
         .attr("id", "clip")
         .append("rect")
         .attr("width", tWidth)
-        .attr("height", size.h)
+        .attr("height", tHeight + 30)
         .attr("x", 0)
-        .attr("y", -tMargin.top);
+        .attr("y", -10);
         
     // Bars
     g.append('g')
@@ -83,7 +82,7 @@ function initTimeline() {
     // Append brush
     brush = d3.brushX()
     .handleSize(8)
-    .extent([[0, 0], [tWidth, tHeight]])
+    .extent([[0, tHeight], [tWidth, tHeight + 10]])
     .on('start brush end', brushing);
 
     const gBrush = g.append('g')
@@ -103,9 +102,8 @@ function initTimeline() {
         .data(d => [d])
         .enter()
         .append('text')
-        .attr('class', 'label')
         .attr('text-anchor', 'middle')
-        .attr('dy', -10);
+        .attr('dy', 0);
 
     // Triangle
     var triangle = d3.symbol()
@@ -122,7 +120,7 @@ function initTimeline() {
         .attr('transform', d => {
             const x = d == 'handle--o' ? -4 : 4,
                 rot = d == 'handle--o' ? -90 : 90;
-            return `translate(${x}, ${(tHeight)/2}) rotate(${rot})`;
+            return `translate(${x}, ${tHeight+5}) rotate(${rot})`;
         });
 
     // Visible Line
@@ -132,9 +130,9 @@ function initTimeline() {
         .append('line')
         .attr('class', d => `line ${d}`)
         .attr('x1', 0)
-        .attr('y1', -5)
+        .attr('y1', 5)
         .attr('x2', 0)
-        .attr('y2', tHeight)
+        .attr('y2', size.h - 25)
         .attr('stroke', colors.handle);
 }
 
@@ -143,7 +141,6 @@ function updateTimeline(updateSelection = true) {
     if(Object.values(dates).length < 1) {
         // Update the graph
         svg.attr('opacity', 0);
-        tData = {};
     } else {
         var min =  new Date(Math.min.apply(null, Object.values(dates).map(d => {return d.start})));
         var max = new Date(Math.max.apply(null, Object.values(dates).map(d => {return d.end})));
@@ -152,31 +149,22 @@ function updateTimeline(updateSelection = true) {
         min = new Date(min.getFullYear(), 0, 1);
         max = new Date(max.getFullYear()+1, 0, 1);
 
-        //if(!startDate || !endDate || min.getTime() !== startDate.getTime() || max.getTime() !== endDate.getTime()) {
-        //if(Object.values(dates).length != cameras.children.length) {
+        if(!startDate || !endDate || min.getTime() !== startDate.getTime() || max.getTime() !== endDate.getTime()) {
             startDate = min; endDate = max;
 
             // Create an array with all the dates and separete them into parent-children (year - month - day)
-            var dayArray = d3.scaleTime().domain([min, max]).ticks(d3.timeDay, 1);
-            var monthArray = d3.scaleTime().domain([min, max]).ticks(d3.timeMonth, 1);
-            var yearArray = d3.scaleTime().domain([min, max]).ticks(d3.timeYear, 1);
-
-            tData.day = generateData(dayArray);
-            tData.month = generateData(monthArray);
-            tData.year = generateData(yearArray);
+            var array = d3.scaleTime().domain([min, max]).ticks(d3.timeDay, 1);
+            var data = d3.rollup(generateData(array), v => d3.sum(v, d => d.value),
+                d => d3.timeYear(d.date), d => d3.timeMonth(d.date), d => d3.timeDay(d.date));
+            // Create an hierarchy with the existing data
+            tData = d3.hierarchy([null, data], ([key, value]) => value.size && Array.from(value))
+                .sum(([key, value]) => value)
+                .eachAfter(d => d.date = d.data[0]);
 
             // Update the timeline
-            //if(!tSelection) {
-                var datesCollection = Object.entries(dates).filter(([key, value]) => collections[params.collection.name].cameras.includes(key)).map(([key, value]) => value);
-                var minCollection =  new Date(Math.min.apply(null, Object.values(datesCollection).map(d => {return d.start})));
-                var maxCollection = new Date(Math.max.apply(null, Object.values(datesCollection).map(d => {return d.end})));
-
-                //var d = dates[textureCamera.name];
-                if(minCollection && maxCollection) tSelection = filteredDomain(zoomScale, getTimeScale(), [zoomScale(minCollection), zoomScale(maxCollection)]);
-                else tSelection = d3.extent(getDataset(), d => d.date);
-            //}
+            if(updateSelection) tSelection = d3.extent(getDataset(), d => d.date);
             updateTimelineData();
-        //}
+        }
     }
 }
 
@@ -193,103 +181,90 @@ function updateTimelineData() {
     var end = new Date(endDate);
 
     start.setFullYear(start.getFullYear() - 1);
-    //end.setFullYear(end.getFullYear() + 1);
+    end.setFullYear(end.getFullYear() + 1);
 
-    xScale.domain([start, end])         // This is the min and the max of the data
-    .ticks(end.getFullYear() - start.getFullYear());    
-
+    xScale.domain([start, end]);    // This is the min and the max of the data
     zoomScale.domain([start, end]);
 
-    // Find the correct x scale
-    yScale.domain([0, d3.max(data, d => d.value)]);
+    // Find the correct y scale
+    yScale.domain([0, d3.max(tData.children, d => d.value)]);
 
     svg.selectAll(".x-axis")
         .call(xAxis.scale(zoomScale));
 
+    svg.select(".chart").datum(tData);
+
+    // Update the bar chart
     var bars = svg.select(".chart")
         .selectAll('rect')
         .data(data);
 
-    // Bars
     bars.enter()
         .append('rect')
         .attr('class', 'bar')
-        .merge(bars)
+        .merge(bars) // get the already existing elements as well
+        //.transition()
         .attr('x', d => xScale(d.date) - getBarWidth(xScale, time, d.date)/2)
-        .attr('y', d => tHeight - yScale(d.value))
+        .attr('y', d => yScale(d.value))
         .attr("width", d => getBarWidth(xScale, time, d.date))
-        .attr('height', d => yScale(d.value))
+        .attr('height', d => tHeight - yScale(d.value))
         .attr('fill', colors.bar)
-        .attr('stroke', colors.background)
         .attr('opacity', 1);
 
     bars.exit().remove();
+    /*
+    var barGroup = svg.select(".chart")
+        .selectAll('rect')
+        .attr('opacity', 0)
+        .data(data)
+        
+    barGroup.exit().remove();
 
-    var text = svg.select(".chart")
-        .selectAll("text")
-		.data(data);
-
-    text.enter()
-        .insert("g", ".block")
-        .append("text")
-        .attr("class", "text")
-        .attr("text-anchor", "middle")
-        .merge(text)
+    var enterGroup = barGroup.enter()
+        .append('rect')
+        .attr('class', 'bar')
         .attr('x', d => xScale(d.date))
-        .attr("y", d => {
-            var pos = tHeight - yScale(d.value);
-            return yScale(d.value) > 10 ? pos + 10 : pos;
-        })
-        .attr('fill', d => {return yScale(d.value) > 10 ? "#fff" : "#333"})
-        .text(d => {
-            var v = Math.round(d.value * 100) / 100;
-            if(v !== 0) return v;
-        });
+        .attr('y', d => yScale(d.value))
+        .attr("width", d => Math.abs(xScale(time.offset(d.date, 1)) - xScale(d.date) - 2))
+        .attr('height', d => tHeight - yScale(d.value))
+        .attr('fill', colors.bar);
+        
+    var mergedGroup = enterGroup.merge(barGroup)
+        .transition()
+        .duration(500)
+        .attr('opacity', 1);
+    */
 
-    text.exit().remove();
-
-    var xbrush = snappedSelection(xScale, getTimeScale(), [startDate, time.offset(endDate, -1)]);
-    brush.extent([[d3.min(xbrush), 0], [d3.max(xbrush), tHeight]]);
-
+    // Update the brushing
     svg.select(".brush")
         .call(brush)
         .call(brush.move, snappedSelection(xScale, getTimeScale(), tSelection));
 }
 
 function updateViewedCameras(start, end) {
-    params.collection.overview = true;
     names = Object.entries(dates).sort().filter(([name, values]) => start < values.end && end > values.start)
         .map(([name, year]) => {return name;});
 
-    if(params.clustering) {
-        params.clustering.images = names.length;
-        params.clustering.clusters = names.length;
-    }
-
     cameras.children.forEach( cam => {
         var helper = cam.children[0];
-        helper.userData.selected = false;
         if(!names.includes(cam.name)) {
             helper.visible = false;
-            if(multipleTextureMaterial) multipleTextureMaterial.removeCamera(cam);
+            multipleTextureMaterial.removeCamera(cam);
         } else {
             helper.visible = true;
-            if(multipleTextureMaterial) {
-                multipleTextureMaterial.setCamera(cam);
-                multipleTextureMaterial.setBorder(cam, {showImage: false});
-            }
+            if(helper.userData.selected == true) multipleTextureMaterial.setCamera(cam);
         }
     });
-
-    var set = collections[params.collection.name].cameras.map(name => {return images[name]});
-    //fitCameraToSelection(viewCamera, set);
 }
 
 /* Gets ---------------------------------------------- */
 function getDataset() {
-    if(tZoom.k < 2.5) return tData.year;
-    else if(tZoom.k < 40) return tData.month;
-    else return tData.day;
+    var depth;
+    if(tZoom.k < 2.5) depth = 1;
+    else if(tZoom.k < 40) depth = 2;
+    else depth = 3;
+
+    return tData.descendants().filter(n => n.depth == depth);
 }
 
 function getTimeScale() {
@@ -298,7 +273,7 @@ function getTimeScale() {
     else return d3.timeDay;
 }
 
-function generateDataProbability(array) {
+function generateData(array) {
     var start = array.shift();
 
     // Update the timeline data
@@ -321,23 +296,8 @@ function generateDataProbability(array) {
     });
 }
 
-function generateData(array) {
-    var start = array.shift();
-
-    // Update the timeline data
-    return array.map(end => {
-        var number = 0;
-        Object.values(dates).forEach(d => {
-            if(start < d.end && end > d.start) number ++;
-        });
-        var result = {date: start, value: number};
-        start = end;
-        return result;
-    });
-}
-
 function getBarWidth(scale, time, date) {
-    return Math.abs(scale(time.offset(date, 1)) - scale(date))
+    return Math.abs(scale(time.offset(date, 1)) - scale(date) - 4)
 }
 
 /* Dates --------------------------------------------- */
@@ -378,9 +338,9 @@ function zoom(svg) {
                 .call(xAxis.scale(zoomScale));
 
             svg.selectAll(".bar")
-                .attr("y", d => zoomScale(d.date) - getBarWidth(zoomScale, time, d.date)/2)
-                .attr("height", d => getBarWidth(zoomScale, time, d.date));
-
+                .attr("x", d => zoomScale(d.date) - getBarWidth(zoomScale, time, d.date)/2)
+                .attr("width", d => getBarWidth(zoomScale, time, d.date));
+    
             // Update the brushing
             svg.select(".brush")
                 .call(brush)
@@ -389,8 +349,8 @@ function zoom(svg) {
             // Move handlers
             svg.selectAll('g.handles')
                 .attr('transform', d => {
-                const y = d == 'handle--o' ? zoomScale(d3.min(tSelection)) : zoomScale(d3.max(tSelection));
-                return `translate(0, ${y})`;
+                const x = d == 'handle--o' ? zoomScale(d3.min(tSelection)) : zoomScale(d3.max(tSelection));
+                return `translate(${x}, 0)`;
                 });
         }
     }
@@ -401,13 +361,12 @@ function brushing() {
     var time = getTimeScale();
     
     if(!data || (!d3.event.selection && !d3.event.sourceEvent)) return; // ignore brush-by-zoom
-    const s0 = d3.event.selection ? d3.event.selection : [1, 2].fill(d3.event.sourceEvent.offsetY),
+    const s0 = d3.event.selection,
         d0 = s0.map(d => zoomScale.invert(d));
 
     const s1 = s0.map(d => {
             var result = d+getBarWidth(zoomScale, time, zoomScale.invert(d))/2;
             if(d == d3.min(s0)) result += 4;
-            else result -= 4;
             return result;
         }),
         d1 = filteredDomain(zoomScale, time, s1),
@@ -430,7 +389,7 @@ function brushing() {
 
     // Update labels
     svg.selectAll('g.handles').selectAll('text')
-        //.attr('dx', d1.length > 1 ? tWidth : tWidth + 6)
+        .attr('dx', d1.length > 1 ? 0 : 6)
         .text((d, i) => {
             let year;
             if (d1.length > 1) {
@@ -450,7 +409,7 @@ function brushing() {
 function snappedSelection(scale, time, domain) {
     var min = d3.min(domain),
         max = time.offset(d3.max(domain),1);
-    return [min, max].map(d => scale(d)-getBarWidth(scale, time, d)/2);
+    return [min, max].map(d => scale(d)-getBarWidth(scale, time, d)/2-2);
 }
 
 function filteredDomain(scale, time, domain) {

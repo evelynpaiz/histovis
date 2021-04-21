@@ -1,12 +1,12 @@
 #myTimeline {
-    position: fixed;
-    width:calc(100% - 220px);
-    margin-left:210px;
-    height: 10%;
-    top: 90%;
+  position: fixed;
+  width:calc(100% - 220px);
+  left: 210px;
+  height: 80px;
+  top: calc(100% - 80px);
 	display: flex;
 	justify-content: center;
-    align-items: center;
+  align-items: center;
 }
 
 svg {
@@ -14,7 +14,8 @@ svg {
 }
 
 svg .selection, svg .overlay {
-	fill: #f27793;
+	/*fill: #f27793;*/
+  opacity: 0;
 }
 
 svg text {
@@ -23,6 +24,14 @@ svg text {
   font-size: 90%;
 }
 
+svg .label {
+  font-size: 12px;
+}
+
+svg .text {
+  font-size: 10px;
+}
+/*
 svg .overlay {
 	opacity: 0.2;
 	pointer-events: none;
@@ -32,7 +41,7 @@ svg .selection {
 	fill-opacity: 0.8;
 	stroke: none;
 }
-
+*/
 svg .domain {
   stroke: none;
 }

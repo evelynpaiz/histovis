@@ -14,6 +14,7 @@ class HistoricalImage {
 
     setCamera(camera, geometries) {
         this.camera = camera;
+        this.ray.camera = camera;
 
         // Compute camera matrices manually
         // TODO fix bug related to inverse projection matrix

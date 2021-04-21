@@ -2,6 +2,8 @@
 var server = 'https://histovis.s3.eu-west-3.amazonaws.com/';
 var width, height;
 
+var loadingScreen;
+
 var prevCamera = new PhotogrammetricCamera();
 var viewCamera = new PhotogrammetricCamera();
 var nextCamera = new PhotogrammetricCamera();
@@ -22,11 +24,12 @@ const spriteTexture = textureLoader.load('data/sprite.png');
 var textures = {}, images = {};
 
 var params = {
-    collection: undefined,
+    collection: {name: undefined, url: undefined, overview: false},
     cameras: {size: 10000},
     environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
     distortion: {rmax: 1.},
-    interpolation: {duration: 3.},
+    interpolation: {duration: 3., fitCamera: false},
+    load: {number: 0, done: false},
     mouse: {timer: 0, delay: 200, prevent: false},
     markers: {near: true, far: true, target: false}
 };
@@ -275,17 +278,25 @@ function onDocumentMouseMove(event) {
         marker = intersects[0].object.parent;
         if(marker.name != textureCamera.name) marker.children[3].visible = params.markers.far && true;
         scaleCameraHelper();
-        if(!marker.userData.selected){
-            var camera = getCameraByName(marker.name);
-            if(camera) multipleTextureMaterial.setCamera(camera);
+
+        var camera = getCameraByName(marker.name);
+
+        if(camera) {
+            if(!params.collection.overview) {
+                if(!marker.userData.selected) multipleTextureMaterial.setCamera(camera);
+            } else multipleTextureMaterial.setBorder(camera, {showImage: true});
         }
     } else {
         downscaleCameraHelper();
         if(marker.name != "") {
             marker.children[3].visible = false;
-            if(!marker.userData.selected){
-                var camera = getCameraByName(marker.name);
-                if(camera) multipleTextureMaterial.removeCamera(camera);
+            
+            var camera = getCameraByName(marker.name);
+
+            if(camera) {
+                if(!params.collection.overview) {
+                    if(!marker.userData.selected) multipleTextureMaterial.removeCamera(camera);
+                } else multipleTextureMaterial.setBorder(camera, {showImage: false});
             }
         }
         
@@ -294,6 +305,7 @@ function onDocumentMouseMove(event) {
 }
 
 function onDocumentMouseClick(event) {
+    
     var intersects = getIntersectedObject(event);
 
     if (intersects.length > 0) {
@@ -301,6 +313,19 @@ function onDocumentMouseClick(event) {
         // Select the image if it has not been projected
         var camera = getCameraByName(marker.name);   
         if(camera) {
+            if(params.collection.overview) {
+                var cams = [];
+                collections[params.collection.name].cameras.forEach(name => {
+                    const array = cameras.children;
+                    const index = array.findIndex(cam => cam.name == name);
+                    if(index > -1) {
+                        cams.push(array[(index + array.length) % array.length]);
+                    }
+                });
+                cleanExtent(cams);
+                params.collection.overview = false;
+            }
+
             if(!marker.userData.selected) {
                 marker.userData.selected = true;
                 multipleTextureMaterial.setCamera(camera);
@@ -318,7 +343,22 @@ function onDocumentMouseDblClick(event) {
     if (intersects.length > 0) {
         marker = intersects[0].object.parent;
         var camera = getCameraByName(marker.name);   
-        if(camera) setCamera(camera);
+        if(camera) {
+            if(params.collection.overview) {
+                var cams = [];
+                collections[params.collection.name].cameras.forEach(name => {
+                    const array = cameras.children;
+                    const index = array.findIndex(cam => cam.name == name);
+                    if(index > -1) {
+                        cams.push(array[(index + array.length) % array.length]);
+                    }
+                });
+                cleanExtent(cams);
+                params.collection.overview = false;
+            }
+
+            setCamera(camera);
+        }
     }
 }
 
@@ -380,7 +420,7 @@ function loadImage(url, source, name) {
     if (typeof images[name] == "undefined") {
         images[name] = new HistoricalImage();
     } 
-    images[name].url = server + params.collection + url;
+    images[name].url = server + params.collection.url + url;
 
     if(!names.includes(name)) names.push(name);
     const year = name.match(/[0-9]{4}/);
@@ -477,7 +517,7 @@ function handleOrientation(name) {
     return function(camera) {
         if (!camera) return;
         handleCamera(camera, name);
-        if(cameras.children.length < 2) setCamera(camera);
+        //if(!getCamera(textureCamera)) setCamera(camera);
         return camera;
     };
 }
@@ -595,6 +635,14 @@ function getLineGeometry(material, vertices, indices) {
 }
 
 function getDate(year) {
+    return {
+        year: year,
+        start: new Date(year, 0, 1),
+        end: new Date(year, 11, 31)
+    };
+}
+
+function getRandomDate(year) {
     var d = new Array();
     // Create a threshold of +-5 year to generate te dates
     const threshold = 5;
@@ -618,7 +666,7 @@ function getRandomDate(start, end) {
 /* Sets ---------------------------------------------- */
 function setView(camera) {
     if (!camera) return;
-    console.log('View:', camera.name);
+    if(camera.name && camera.name !== "") console.log('View:', camera.name);
     prevCamera.set(viewCamera);
     nextCamera.set(camera);
     cameraAspect(nextCamera);
@@ -635,7 +683,7 @@ function setView(camera) {
 
 function setTexture(camera) {
     if (!camera) return;
-    console.log('Texture:', camera.name);
+    if(camera.name && camera.name !== "") console.log('Texture:', camera.name);
     camera.children[0].userData.selected = true;
     textureCamera.copy(camera);
     if(textureMaterial) {
@@ -708,20 +756,92 @@ function interpolateCamera(timestamp) {
             
             if(controls) controls.reset(true);
 
+            //if(params.interpolation.fitCamera) {
+            //    fitCameraToSelection(viewCamera, images);
+            //    params.interpolation.fitCamera = false;
+            //}
+
             //showMaterials(true);
         }
         viewCamera.updateProjectionMatrix(); 
     }
 }
 
+// Ref: https://discourse.threejs.org/t/camera-zoom-to-fit-object/936/24
+function fitCameraToSelection(camera, set, fitOffset = 1.) {
+    // Create bounding box based on all projected points
+    const box = new THREE.Box3();
+
+    Object.values(set).forEach(item => {
+        Object.values(item.projectedPoints).forEach(p => {
+            box.expandByPoint(p);
+        
+            // visible points to check the correct position
+            const geometry = new THREE.SphereBufferGeometry(10, 32, 32);
+            const material = new THREE.MeshBasicMaterial( {color: 0xff0000} );
+            const sphere = new THREE.Mesh( geometry, material );
+            sphere.position.copy(p);
+            sphere.updateMatrixWorld();
+            sphere.updateWorldMatrix();
+            view.scene.add(sphere);
+        });
+    });
+
+    view.scene.add(boxHelper(box));
+
+    // Center and size of the bounding box
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    const maxSize = Math.max(size.x, size.y, size.z);
+    const fitHeightDistance = maxSize / (2 * Math.atan(Math.PI * camera.fov / 360));
+    const fitWidthDistance = fitHeightDistance / camera.aspect;
+    const distance = fitOffset * Math.max(fitHeightDistance, fitWidthDistance);
+
+    const direction = center.clone().sub(camera.position).normalize().multiplyScalar(distance);
+
+    var updateCamera = camera.clone();
+    updateCamera.position.copy(center).sub(direction);
+    updateCamera.lookAt(center);
+    updateCamera.updateProjectionMatrix();
+
+    setView(updateCamera);
+}
+
+function boxHelper(box) {
+    // Min and max size of the box
+    const min = box.min;
+	const max = box.max;
+
+    const indices = new Uint16Array([ 0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7 ]);
+	const array = new Float32Array(8 * 3); // cube
+
+    array[ 0 ] = max.x; array[ 1 ] = max.y; array[ 2 ] = max.z;
+    array[ 3 ] = min.x; array[ 4 ] = max.y; array[ 5 ] = max.z;
+    array[ 6 ] = min.x; array[ 7 ] = min.y; array[ 8 ] = max.z;
+    array[ 9 ] = max.x; array[ 10 ] = min.y; array[ 11 ] = max.z;
+    array[ 12 ] = max.x; array[ 13 ] = max.y; array[ 14 ] = min.z;
+    array[ 15 ] = min.x; array[ 16 ] = max.y; array[ 17 ] = min.z;
+    array[ 18 ] = min.x; array[ 19 ] = min.y; array[ 20 ] = min.z;
+    array[ 21 ] = max.x; array[ 22 ] = min.y; array[ 23 ] = min.z;
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+    geometry.setAttribute('position', new THREE.BufferAttribute(array, 3));
+
+    var material = new THREE.LineBasicMaterial({color: 0xffff00, toneMapped: false});
+    return new THREE.LineSegments(geometry, material);
+}
+
 /* Clean --------------------------------------------- */
 function basicClean() {
-    params = {
-        collection: undefined,
+    var params = {
+        collection: {name: undefined, url: undefined, overview: false},
         cameras: {size: 10000},
         environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
         distortion: {rmax: 1.},
-        interpolation: {duration: 3.},
+        interpolation: {duration: 3., fitCamera: false},
+        load: {number: 0, done: false},
         mouse: {timer: 0, delay: 200, prevent: false},
         markers: {near: true, far: true, target: false}
     };
@@ -733,7 +853,7 @@ function basicClean() {
     nextCamera.timestamp = undefined;
     textureCamera.copy(viewCamera);
 
-    viewCamera.zoom = 0.5;
+    viewCamera.zoom = 0.4;
     viewCamera.up.set(0, 0, 1);
     
     if(textureMaterial) textureMaterial.map = null;
@@ -747,8 +867,15 @@ function basicClean() {
 
     Object.keys(textures).forEach(key => textures[key].dispose());
     Object.keys(images).forEach(key => delete images[key]);
-    dates = {};
     while(cameras.children.length) cameras.remove(cameras.children[0]);
+    dates = {};
+    names = [];
 
     if(multipleTextureMaterial) multipleTextureMaterial.clean();
+}
+
+function cleanExtent(cams) {
+    cams.forEach( cam => {
+        if(multipleTextureMaterial) multipleTextureMaterial.removeCamera(cam);
+    });
 }
