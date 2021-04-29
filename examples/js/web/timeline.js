@@ -275,11 +275,13 @@ function updateViewedCameras(start, end) {
         } else {
             helper.visible = true;
             if(multipleTextureMaterial) {
-                multipleTextureMaterial.setCamera(cam);
+                multipleTextureMaterial.setCamera(cam, {color: markerMaterials[cam.name].color});
                 multipleTextureMaterial.setBorder(cam, {showImage: false});
             }
         }
     });
+
+    if(!names.includes(textureCamera.name)) textureCamera = new PhotogrammetricCamera();
 
     var set = collections[params.collection.name].cameras.map(name => {return images[name]});
     //fitCameraToSelection(viewCamera, set);

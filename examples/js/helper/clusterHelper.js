@@ -399,10 +399,11 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
 
     function onImageMouseOver() {
         marker = image.camera.children[0];
+        if(textureCamera.name != "" && marker.name != textureCamera.name) marker.children[3].visible = params.markers.far && true;
         scaleCameraHelper();
         if(!params.collection.overview) {
             if(!marker.userData.selected){
-                multipleTextureMaterial.setCamera(image.camera);
+                multipleTextureMaterial.setCamera(image.camera, {color: markerMaterials[image.camera.name].color});
             }
         } else {
             multipleTextureMaterial.setBorder(image.camera, {showImage: true});
@@ -410,8 +411,9 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
     }
 
     function onImageMouseOut() {
-        marker = image.camera.children[0];
+        marker = image.camera.children[0];;
         downscaleCameraHelper();
+        marker.children[3].visible = false;
         if(!params.collection.overview) {
             if(!marker.userData.selected) {
                 multipleTextureMaterial.removeCamera(image.camera);
@@ -439,7 +441,7 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
         marker = image.camera.children[0];
         if(!marker.userData.selected) {
             marker.userData.selected = true;
-            multipleTextureMaterial.setCamera(image.camera);
+            multipleTextureMaterial.setCamera(image.camera, {color: markerMaterials[image.camera.name].color});
         } else {
             marker.userData.selected = false;
             multipleTextureMaterial.removeCamera(image.camera);

@@ -31,7 +31,7 @@ var params = {
     interpolation: {duration: 3., fitCamera: false},
     load: {number: 0, done: false},
     mouse: {timer: 0, delay: 200, prevent: false},
-    markers: {near: true, far: true, target: false}
+    markers: {scale: 4, near: true, far: true, target: false}
 };
 
 var dates = {}, names = [];
@@ -136,7 +136,7 @@ function initSceneMaterialUniforms(vs, fs, material) {
 function initMarkerMaterialUniforms(vs, fs) {
     var uniforms = {
         color: 0x2196F3,
-        linewidth: 1,       // in pixels
+        linewidth: 3,       // in pixels
         dashed: false,
         transparent: true,
         vertexShader: vs,
@@ -196,7 +196,7 @@ function cameraHelper(camera) {
     // place a sprite at the center point
     {
         const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(8, 8, 1);
+        sprite.scale.set(10, 10, 1);
         group.add(sprite);
     }
 
@@ -224,11 +224,13 @@ function cameraHelper(camera) {
         geometry.visible = false;
         group.add(geometry);
     }
+
+    group.scale.set(params.markers.scale, params.markers.scale, params.markers.scale);
     return group;
 }
 
 function scaleCameraHelper() {
-    if(marker && markerMaterials[marker.name] && marker.scale.x < 2){
+    if(marker && markerMaterials[marker.name] && marker.scale.x < 2 + params.markers.scale){
         marker.scale.addScalar(0.5);
         markerMaterials[marker.name].linewidth += 1;
         marker.updateMatrixWorld();
@@ -237,7 +239,7 @@ function scaleCameraHelper() {
 }
 
 function downscaleCameraHelper() {
-    if(marker && markerMaterials[marker.name] && marker.scale.x > 1){
+    if(marker && markerMaterials[marker.name] && marker.scale.x > params.markers.scale){
         marker.scale.addScalar(-0.5);
         markerMaterials[marker.name].linewidth -= 1;
         marker.updateMatrixWorld();
@@ -274,7 +276,7 @@ function onDocumentKeyDown(event) {
 function onDocumentMouseMove(event) {
     var intersects = getIntersectedObject(event);                    
 
-    if (intersects.length > 0) {
+    if (intersects.length > 0 && prevCamera.timestamp == undefined) {
         marker = intersects[0].object.parent;
         if(marker.name != textureCamera.name) marker.children[3].visible = params.markers.far && true;
         scaleCameraHelper();
@@ -283,10 +285,10 @@ function onDocumentMouseMove(event) {
 
         if(camera) {
             if(!params.collection.overview) {
-                if(!marker.userData.selected) multipleTextureMaterial.setCamera(camera);
+                if(!marker.userData.selected) multipleTextureMaterial.setCamera(camera, {color: markerMaterials[camera.name].color});
             } else multipleTextureMaterial.setBorder(camera, {showImage: true});
         }
-    } else {
+    } else if(prevCamera.timestamp == undefined){
         downscaleCameraHelper();
         if(marker.name != "") {
             marker.children[3].visible = false;
@@ -328,7 +330,7 @@ function onDocumentMouseClick(event) {
 
             if(!marker.userData.selected) {
                 marker.userData.selected = true;
-                multipleTextureMaterial.setCamera(camera);
+                multipleTextureMaterial.setCamera(camera, {color: markerMaterials[camera.name].color});
             } else {
                 marker.userData.selected = false;
                 multipleTextureMaterial.removeCamera(camera);
@@ -517,7 +519,7 @@ function handleOrientation(name) {
     return function(camera) {
         if (!camera) return;
         handleCamera(camera, name);
-        //if(!getCamera(textureCamera)) setCamera(camera);
+        if(!getCamera(textureCamera)) setCamera(camera);
         return camera;
     };
 }
@@ -691,7 +693,7 @@ function setTexture(camera) {
         setRadius(textureMaterial, camera);
         textureMaterial.setHomography(camera);
     }
-    if(multipleTextureMaterial) multipleTextureMaterial.setCamera(camera);
+    if(multipleTextureMaterial) multipleTextureMaterial.setCamera(camera, {color: markerMaterials[camera.name].color});
 }
 
 function setCamera(camera) {
@@ -772,8 +774,15 @@ function fitCameraToSelection(camera, set, fitOffset = 1.) {
     // Create bounding box based on all projected points
     const box = new THREE.Box3();
 
+    var min, max;
     Object.values(set).forEach(item => {
         Object.values(item.projectedPoints).forEach(p => {
+            if(min) min = min.min(p);
+            else min = p.clone();
+
+            if(max) max = max.max(p);
+            else max = p.clone();
+
             box.expandByPoint(p);
         
             // visible points to check the correct position
@@ -788,6 +797,8 @@ function fitCameraToSelection(camera, set, fitOffset = 1.) {
     });
 
     view.scene.add(boxHelper(box));
+    console.log(box.min, min);
+    console.log(box.max, max);
 
     // Center and size of the bounding box
     const size = box.getSize(new THREE.Vector3());
@@ -801,6 +812,7 @@ function fitCameraToSelection(camera, set, fitOffset = 1.) {
     const direction = center.clone().sub(camera.position).normalize().multiplyScalar(distance);
 
     var updateCamera = camera.clone();
+    updateCamera.zoom = 1.;
     updateCamera.position.copy(center).sub(direction);
     updateCamera.lookAt(center);
     updateCamera.updateProjectionMatrix();
@@ -835,7 +847,7 @@ function boxHelper(box) {
 
 /* Clean --------------------------------------------- */
 function basicClean() {
-    var params = {
+    params = {
         collection: {name: undefined, url: undefined, overview: false},
         cameras: {size: 10000},
         environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
@@ -843,7 +855,7 @@ function basicClean() {
         interpolation: {duration: 3., fitCamera: false},
         load: {number: 0, done: false},
         mouse: {timer: 0, delay: 200, prevent: false},
-        markers: {near: true, far: true, target: false}
+        markers: {scale: 4, near: true, far: true, target: false}
     };
 
     const camera = new PhotogrammetricCamera();

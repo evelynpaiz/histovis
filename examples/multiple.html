@@ -75,7 +75,7 @@
             var imageVS = histovis.photogrammetricCamera.imageVS;
             var imageFS = histovis.photogrammetricCamera.imageFS;
             var multipleVS = histovis.photogrammetricCamera.multipleVS;
-            var multipleFS = histovis.photogrammetricCamera.multipleFS;
+            var multipleFS = histovis.photogrammetricCamera.footprintFS;
             var lineVS = histovis.lineVS;
             var lineFS = histovis.lineFS;
             // Photogrammetric camera
@@ -151,8 +151,6 @@
                 [multipleTextureMaterialUniforms, multipleTextureMaterial] = initMultipleTextureMaterial(
                     multipleVS, multipleFS, uvTexture, view.mainLoop.gfxEngine.renderer);
                 markerMaterialUniforms = initMarkerMaterialUniforms(lineVS, lineFS);
-
-                multipleTextureMaterial.border.linewidth = 3;
 
                 // Environment
                 environment = new THREE.Group();
@@ -320,9 +318,12 @@
                 var viewGUI = gui.addFolder('View Camera'); 
                 viewGUI.zoom = viewGUI.add(viewCamera, 'zoom', 0.1, 2.0).onChange(updateViewCameraFromGUI);
 
-                // Texture Camera
-                var textureGUI = gui.addFolder('Historical Camera');
-                textureGUI.opacity = textureGUI.add(view.getLayers()[2], 'opacity', 0, 0.99);
+                // Footprint
+                var footprintGUI = gui.addFolder('Footprint');
+                footprintGUI.opacity = footprintGUI.add(multipleTextureMaterial, 'opacity', 0, 1);
+                footprintGUI.image = footprintGUI.add(multipleTextureMaterial.footprint, 'image');
+                footprintGUI.heatmap = footprintGUI.add(multipleTextureMaterial.footprint, 'heatmap');
+                footprintGUI.distortion = footprintGUI.add(multipleTextureMaterial.footprint, 'border', {none: 0, around: 1, complete: 2});
 
                 // Viewpoint Markers
                 function updateViewpointMarkersFromGUI(value) {
@@ -373,7 +374,7 @@
                 backgroundGUI.wireframe = backgroundGUI.add(multipleTextureMaterial, 'wireframe');
                 backgroundGUI.sphere = backgroundGUI.add(backgroundSphere, 'visible').name('sphere visible');
                 backgroundGUI.plane = backgroundGUI.add(worldPlane, 'visible').name('plane visible');
-                backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -100, 100)
+                backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -2000, 2000)
                     .name('plane elevation').onChange(updateElevationFromGUI);
 
                 // Debug
@@ -392,11 +393,11 @@
                     backgroundGUI.plane.setValue(environment.children[1].visible);
                     backgroundGUI.elevation.setValue(params.environment.elevation);
                     
-                    var name = textureCamera.name;
-                    if (name.length > 0) {
-                        if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
-                        textureGUI.name = 'Hist: ' + name;
-                    }
+                    //var name = textureCamera.name;
+                    //if (name.length > 0) {
+                    //    if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
+                    //    textureGUI.name = 'Hist: ' + name;
+                    //}
 
                     clusteringGUI.images.max(Object.values(names).length);
                     clusteringGUI.images.setValue(Math.floor(params.clustering.images));
@@ -416,10 +417,7 @@
                 else {
                     loadingScreen.style.display = 'none';
                     // Update 
-                    //if(textureCamera.name == "" && cameras.children.length > 0) setCamera(getCamera(cameras.children[0]));
-                    cameras.children.forEach(camera => {
-                        multipleTextureMaterial.setBorder(camera, {visible: cameras.visible, color: markerMaterials[camera.name].color});
-                    });
+                    if(textureCamera.name == "" && names.length > 0) setCamera(getCameraByName(names[0]));
                     updateCluster(viewCamera);
                     //updateTimeline();
                     gui.updateGUI();
