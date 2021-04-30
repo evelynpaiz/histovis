@@ -88,6 +88,7 @@
             var HistoricalImage = histovis.HistoricalImage;
             var HierarchicalCluster = histovis.HierarchicalCluster;
             var Border = histovis.Border;
+            var MinMaxGUIHelper = histovis.MinMaxGUIHelper;
         </script>
 
         <script src="js/helper/photogrammetricHelper.js"></script>
@@ -132,7 +133,7 @@
 
                 // Cameras 
                 cameras = new THREE.Group();
-                cameras.visible = true;
+                cameras.visible = false;
                 scene.add(viewCamera);
                 scene.add(cameras);
 
@@ -196,8 +197,8 @@
                         load: function() {
                             params.collection.name = 'IGNFrejus';
                             markerMaterialUniforms.color = collections[params.collection.name].color;
-                            params.collection.url = 'collections/ign_frejus/';
-                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index.json', params.collection.name);
+                            params.collection.url = 'collections/frejus/';
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-geo.json', params.collection.name);
                             params.interpolation.fitCamera = true;
                         },
                         unload: function() {
@@ -317,6 +318,27 @@
 
                 var viewGUI = gui.addFolder('View Camera'); 
                 viewGUI.zoom = viewGUI.add(viewCamera, 'zoom', 0.1, 2.0).onChange(updateViewCameraFromGUI);
+                const minMaxView = new MinMaxGUIHelper(viewCamera, 'near', 'far', 0.1);
+                viewGUI.near = viewGUI.add(minMaxView, 'min', 0.1, 30, 0.1).name('near').onChange(updateViewCameraFromGUI);
+                viewGUI.far = viewGUI.add(minMaxView, 'max', 0.1, 15000, 0.1).name('far').onChange(updateViewCameraFromGUI);
+
+
+                // Historical Cameras
+                function updateHistoricalImagesFromGUI() {
+                    cameras.children.forEach(camera => {
+                        camera.near = params.cameras.near;
+                        camera.far = params.cameras.far;
+                        camera.updateProjectionMatrix();
+
+                        multipleTextureMaterial.updateCamera(camera, {color: markerMaterials[camera.name].color});
+                    });
+                }
+
+                var textureGUI = gui.addFolder('Historical Cameras');
+                const minMaxTexture = new MinMaxGUIHelper(params.cameras, 'near', 'far', 0.1);
+                textureGUI.near = textureGUI.add(minMaxTexture, 'min', 0.1, 30, 0.1).name('near').onChange(updateHistoricalImagesFromGUI);
+                textureGUI.far = textureGUI.add(minMaxTexture, 'max', 0.1, 15000, 0.1).name('far').onChange(updateHistoricalImagesFromGUI);
+
 
                 // Footprint
                 var footprintGUI = gui.addFolder('Footprint');
@@ -374,7 +396,7 @@
                 backgroundGUI.wireframe = backgroundGUI.add(multipleTextureMaterial, 'wireframe');
                 backgroundGUI.sphere = backgroundGUI.add(backgroundSphere, 'visible').name('sphere visible');
                 backgroundGUI.plane = backgroundGUI.add(worldPlane, 'visible').name('plane visible');
-                backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -2000, 2000)
+                backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -200, 200)
                     .name('plane elevation').onChange(updateElevationFromGUI);
 
                 // Debug

@@ -107,8 +107,8 @@ function initBuildings(material) {
         //} else if (properties.id.indexOf('bati_industriel') === 0) {
         //    return color.set(0xff5555);
         //}
-        //return color.set(0xeeeeee);
-        return color.set(0xe91e63);
+        return color.set(0xeeeeee);
+        //return color.set(0xe91e63);
     }
 
     function altitudeBuildings(properties) {

@@ -25,7 +25,7 @@ var textures = {}, images = {};
 
 var params = {
     collection: {name: undefined, url: undefined, overview: false},
-    cameras: {size: 10000},
+    cameras: {size: 10000, near: 0.1, far: 15000},
     environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
     distortion: {rmax: 1.},
     interpolation: {duration: 3., fitCamera: false},
@@ -849,7 +849,7 @@ function boxHelper(box) {
 function basicClean() {
     params = {
         collection: {name: undefined, url: undefined, overview: false},
-        cameras: {size: 10000},
+        cameras: {size: 10000, near: 0.1, far: 15000},
         environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
         distortion: {rmax: 1.},
         interpolation: {duration: 3., fitCamera: false},
