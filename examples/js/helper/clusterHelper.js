@@ -421,7 +421,6 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
         } else {
             multipleTextureMaterial.setBorder(image.camera, {showImage: false});
         }
-        marker = new THREE.Group();
     }
 
     function onImageMouseClick() {

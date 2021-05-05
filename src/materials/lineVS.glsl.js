@@ -18,7 +18,6 @@ varying vec2 vUv;
 varying vec3 vPos;
 
 #ifdef USE_DASH
-
     uniform float dashScale;
     attribute float instanceDistanceStart;
     attribute float instanceDistanceEnd;
@@ -142,6 +141,5 @@ void main() {
     #include <logdepthbuf_vertex>
     #include <clipping_planes_vertex>
     #include <fog_vertex>
-
 }
 `;

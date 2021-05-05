@@ -3,7 +3,7 @@ var view;
 var environmentGlobe;
 var buildings = [];
 
-var globeRendering = false;
+var globeRendering = true;
 
 /* ----------------------- Functions --------------------- */
 

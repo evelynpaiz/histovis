@@ -1,12 +1,11 @@
 export default /* glsl */`
 uniform vec3 diffuse;
 uniform float opacity;
+uniform float lineDistance;
 
 #ifdef USE_DASH
-
     uniform float dashSize;
     uniform float gapSize;
-
 #endif
 
 varying float vLineDistance;
@@ -42,9 +41,10 @@ void main() {
 
     }
 
-    float limitDistance = 7.;
+    float limitDistance = 7.; //1.
     float distance = clamp(length(vPos), 0., limitDistance);
     float opacityDepth = 1. - distance / limitDistance;
+
     vec4 diffuseColor = vec4( diffuse, opacityDepth );
 
     #include <logdepthbuf_fragment>

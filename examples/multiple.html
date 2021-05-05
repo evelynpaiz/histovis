@@ -58,6 +58,11 @@
             var LineMaterial = histovis.LineMaterial;
             var LineSegmentsGeometry = histovis.LineSegmentsGeometry;
             var LineSegments2 = histovis.LineSegments2;
+
+            var lineVS = histovis.lineVS;
+            var lineFS = histovis.lineFS;
+            var spriteVS = histovis.spriteVS;
+            var spriteFS = histovis.spriteFS;
         </script>
 
         <script src="../dist/photogrammetric-camera.js"></script>
@@ -76,8 +81,6 @@
             var imageFS = histovis.photogrammetricCamera.imageFS;
             var multipleVS = histovis.photogrammetricCamera.multipleVS;
             var multipleFS = histovis.photogrammetricCamera.footprintFS;
-            var lineVS = histovis.lineVS;
-            var lineFS = histovis.lineFS;
             // Photogrammetric camera
             var PhotogrammetricCamera = histovis.photogrammetricCamera.PhotogrammetricCamera;
         </script>
@@ -133,7 +136,6 @@
 
                 // Cameras 
                 cameras = new THREE.Group();
-                cameras.visible = false;
                 scene.add(viewCamera);
                 scene.add(cameras);
 
@@ -148,9 +150,10 @@
                 // Materials
                 basicMaterial = initBasicMaterial();
                 wireMaterial = initWireMaterial();
-                spriteMaterial = initSpriteMaterial(spriteTexture);
                 [multipleTextureMaterialUniforms, multipleTextureMaterial] = initMultipleTextureMaterial(
                     multipleVS, multipleFS, uvTexture, view.mainLoop.gfxEngine.renderer);
+                
+                spriteMaterialUniforms = initSpriteMaterialUniforms(spriteTexture, spriteVS, spriteFS);
                 markerMaterialUniforms = initMarkerMaterialUniforms(lineVS, lineFS);
 
                 // Environment
@@ -196,6 +199,7 @@
                         cameras: [],
                         load: function() {
                             params.collection.name = 'IGNFrejus';
+                            spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
                             params.collection.url = 'collections/frejus/';
                             loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-geo.json', params.collection.name);
@@ -212,6 +216,7 @@
                         cameras: [],
                         load: function() {
                             params.collection.name = 'IGNNanterreBridge';
+                            spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
                             params.collection.url = 'collections/ign_nanterre/';
                             loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-bridge.json', params.collection.name);
@@ -228,6 +233,7 @@
                         cameras: [],
                         load: function() {
                             params.collection.name = 'IGNNanterreBuilding';
+                            spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
                             params.collection.url = 'collections/ign_nanterre/';
                             loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-building.json', params.collection.name);
@@ -264,15 +270,6 @@
                     onDocumentMouseDblClick(event);
                 });
 
-                /* Rendering ----------------------------------------- */
-                view.render = function render(){
-                    renderer.setRenderTarget(null);
-                    renderer.clear();
-
-                    if(globeRendering) renderer.render(view.scene, viewCamera);
-                    else renderer.render(scene, viewCamera);
-                }
-
                 /* Clean --------------------------------------------- */
                 function clean() {
                     basicClean();
@@ -295,6 +292,7 @@
                             if(camera) {
                                 const color = new THREE.Color(value);
                                 markerMaterials[name].color = color;
+                                spriteMaterials[name].color = color;
                                 multipleTextureMaterial.setBorder(camera, {color: color});
                             }
                         });
@@ -331,6 +329,7 @@
                         camera.updateProjectionMatrix();
 
                         multipleTextureMaterial.updateCamera(camera, {color: markerMaterials[camera.name].color});
+                        view.notifyChange(true);
                     });
                 }
 
@@ -351,20 +350,24 @@
                 function updateViewpointMarkersFromGUI(value) {
                     cameras.visible = value;
                     multipleTextureMaterial.border.visible = value;
+                    view.notifyChange(true);
                 }
 
                 function updateMarkerTargetFromGUI(value) {
                     params.markers.target = value;
                     cameras.children.forEach(cam => cam.children[0].children[1].visible = params.markers.target);
+                    view.notifyChange(true);
                 }
 
                 function updateMarkerNearFromGUI(value) {
                     params.markers.near = value;
                     cameras.children.forEach(cam => cam.children[0].children[2].visible = params.markers.near);
+                    view.notifyChange(true);
                 }
 
                 function updateMarkerFarFromGUI(value) {
                     params.markers.far = value;
+                    view.notifyChange(true);
                 }
 
                 var markerGUI = gui.addFolder('Viewpoint Markers');
@@ -376,10 +379,12 @@
                 // Clustering options
                 function updateClusterFromGUI(value) {
                     params.clustering.clusters = Math.floor(value);
+                    view.notifyChange(true);
                 }
 
                 function updateClusterImageFromGUI(value) {
                     params.clustering.images = Math.floor(value);
+                    view.notifyChange(true);
                 }
 
                 var clusteringGUI = gui.addFolder('Clustering');
@@ -433,21 +438,17 @@
 
             function animate(timestamp) {
                 // Check if everything has been loaded first
-                if(params.load.number != cameras.children.length) {
-                    loadingScreen.style.display = 'block';
-                }
+                if(params.load.number != cameras.children.length) loadingScreen.style.display = 'block';
                 else {
                     loadingScreen.style.display = 'none';
-                    // Update 
                     if(textureCamera.name == "" && names.length > 0) setCamera(getCameraByName(names[0]));
-                    updateCluster(viewCamera);
+                    //updateCluster(viewCamera);
                     //updateTimeline();
                     gui.updateGUI();
+
                     // Interpolate
                     interpolateCameraGlobe(timestamp);
                 }
-                // Render
-                if(!globeRendering) view.notifyChange(true);
                 requestAnimationFrame(animate);
             }
         </script>

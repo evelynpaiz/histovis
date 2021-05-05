@@ -15,8 +15,8 @@ var environment, backgroundSphere, worldPlane;
 var composer, scenePass;
 var raycaster, mouse, marker;
 
-var basicMaterial, wireMaterial, spriteMaterial, textureMaterial, multipleTextureMaterial, viewMaterials = {}, markerMaterials = {};
-var textureMaterialUniforms, multipleTextureMaterialUniforms, viewMaterialUniforms, sceneMaterialUniforms, markerMaterialUniforms;
+var basicMaterial, wireMaterial, textureMaterial, multipleTextureMaterial, viewMaterials = {}, markerMaterials = {}, spriteMaterials = {};
+var textureMaterialUniforms, multipleTextureMaterialUniforms, viewMaterialUniforms, sceneMaterialUniforms, spriteMaterialUniforms, markerMaterialUniforms;
 
 var textureLoader = new THREE.TextureLoader();
 const uvTexture = textureLoader.load('data/uv.jpg');
@@ -34,7 +34,7 @@ var params = {
     markers: {scale: 4, near: true, far: true, target: false}
 };
 
-var dates = {}, names = [];
+var dates = {}, names = [], markers = [];
 
 /* ----------------------- Functions --------------------- */
 
@@ -50,15 +50,6 @@ function initWireMaterial() {
     return new THREE.MeshBasicMaterial({
         color: 0xffcc66,
         wireframe: true,
-    });
-}
-
-function initSpriteMaterial(map) {
-    return new THREE.SpriteMaterial({
-        map: map,
-        color: 0xffffff,
-        fog: true,
-        depthTest: false
     });
 }
 
@@ -133,6 +124,18 @@ function initSceneMaterialUniforms(vs, fs, material) {
     return uniforms;
 }
 
+function initSpriteMaterialUniforms(map, vs, fs) {
+    var uniforms = {
+        map: map,
+        color: 0x00ffff,
+        vertexColors: THREE.VertexColors,
+        fog: true,
+        depthTest: false
+    };
+
+    return {uniforms: uniforms, thickness: 30., vertexShader: vs, fragmentShader: fs};
+}
+
 function initMarkerMaterialUniforms(vs, fs) {
     var uniforms = {
         color: 0x2196F3,
@@ -195,8 +198,10 @@ function cameraHelper(camera) {
 
     // place a sprite at the center point
     {
-        const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(10, 10, 1);
+        spriteMaterials[camera.name] = new THREE.SpriteMaterial(spriteMaterialUniforms.uniforms);
+        spriteMaterials[camera.name].onBeforeCompile = onBeforeCompileSprite;
+        const sprite = new THREE.Sprite(spriteMaterials[camera.name]);
+        sprite.scale.set(5, 5, 1);
         group.add(sprite);
     }
 
@@ -227,6 +232,14 @@ function cameraHelper(camera) {
 
     group.scale.set(params.markers.scale, params.markers.scale, params.markers.scale);
     return group;
+
+    function onBeforeCompileSprite(shader) {
+        shader.uniforms.outlineThickness = {value: spriteMaterialUniforms.thickness};
+        shader.uniforms.resolution = {value: new THREE.Vector2(width, height)};
+
+        shader.vertexShader = spriteMaterialUniforms.vertexShader;
+        shader.fragmentShader = spriteMaterialUniforms.fragmentShader;
+    }
 }
 
 function scaleCameraHelper() {
@@ -234,6 +247,7 @@ function scaleCameraHelper() {
         marker.scale.addScalar(0.5);
         markerMaterials[marker.name].linewidth += 1;
         marker.updateMatrixWorld();
+        view.notifyChange(true);
         requestAnimationFrame(scaleCameraHelper);
     }
 }
@@ -243,8 +257,9 @@ function downscaleCameraHelper() {
         marker.scale.addScalar(-0.5);
         markerMaterials[marker.name].linewidth -= 1;
         marker.updateMatrixWorld();
+        view.notifyChange(true);
         requestAnimationFrame(downscaleCameraHelper);
-    }
+    } else marker = new THREE.Group();
 }
 
 /* Callbacks ----------------------------------------- */
@@ -277,16 +292,20 @@ function onDocumentMouseMove(event) {
     var intersects = getIntersectedObject(event);                    
 
     if (intersects.length > 0 && prevCamera.timestamp == undefined) {
-        marker = intersects[0].object.parent;
-        if(marker.name != textureCamera.name) marker.children[3].visible = params.markers.far && true;
-        scaleCameraHelper();
+        //Return the marker to the original state before 
+        if(marker.name != "" && marker.name != intersects[0].object.parent.name) downscaleCameraHelper();
+        else {
+            marker = intersects[0].object.parent;
+            if(marker.name != textureCamera.name) marker.children[3].visible = params.markers.far && true;
+            scaleCameraHelper();
 
-        var camera = getCameraByName(marker.name);
+            var camera = getCameraByName(marker.name);
 
-        if(camera) {
-            if(!params.collection.overview) {
-                if(!marker.userData.selected) multipleTextureMaterial.setCamera(camera, {color: markerMaterials[camera.name].color});
-            } else multipleTextureMaterial.setBorder(camera, {showImage: true});
+            if(camera) {
+                if(!params.collection.overview) {
+                    if(!marker.userData.selected) multipleTextureMaterial.setCamera(camera, {color: markerMaterials[camera.name].color});
+                } else multipleTextureMaterial.setBorder(camera, {showImage: true});
+            }
         }
     } else if(prevCamera.timestamp == undefined){
         downscaleCameraHelper();
@@ -301,13 +320,10 @@ function onDocumentMouseMove(event) {
                 } else multipleTextureMaterial.setBorder(camera, {showImage: false});
             }
         }
-        
-        marker = new THREE.Group();
     }
 }
 
 function onDocumentMouseClick(event) {
-    
     var intersects = getIntersectedObject(event);
 
     if (intersects.length > 0) {

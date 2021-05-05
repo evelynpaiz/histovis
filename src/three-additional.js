@@ -15,3 +15,8 @@ import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2';
 export { PLYLoader };
 export { CopyShader, EffectComposer, RenderPass, ShaderPass };
 export { LineMaterial, LineGeometry, Line2, LineSegmentsGeometry, LineSegments2 };
+
+export { default as lineVS } from './materials/lineVS.glsl';
+export { default as lineFS } from './materials/lineFS.glsl';
+export { default as spriteVS } from './materials/spriteVS.glsl';
+export { default as spriteFS } from './materials/spriteFS.glsl';
