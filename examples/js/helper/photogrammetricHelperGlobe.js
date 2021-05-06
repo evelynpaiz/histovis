@@ -18,7 +18,11 @@ function initGlobe(container, camera) {
 
     view = new itowns.GlobeView(container, placement, 
         {handleCollision: false, disableSkirt: false, noControls: true, camera: camera});
-    camera.zoom = 0.4;
+    camera.zoom = params.cameras.zoom;
+
+    // Controls
+    //controls = new itowns.GlobeControls(view, placement);
+    controls = new itowns.FirstPersonControls(view);
 
     // Add color layers
     itowns.Fetcher.json('layers/Ortho.json').then(addColorLayerFromConfig);
@@ -135,7 +139,13 @@ function loadJSONGlobe(material, path, file, c) {
 
         if(json.camera) {
             if(json.camera.scale) params.cameras.size = json.camera.scale;
-            if(json.camera.zoom) viewCamera.zoom = json.camera.zoom;
+            if(json.camera.marker) params.markers.scale = json.camera.marker;
+            if(json.camera.zoom) {
+                viewCamera.zoom = json.camera.zoom;
+                params.cameras.zoom = json.camera.zoom;
+            }
+            if(json.camera.far) params.cameras.far = json.camera.far;
+            else params.cameras.far = params.environment.radius+params.environment.epsilon;
         }
 
         if(json.environment) {
@@ -223,10 +233,12 @@ function updateEnvironmentGlobe() {
 
 /* Movement ------------------------------------------ */
 function interpolateCameraGlobe(timestamp) {
-    if (globeRendering && controls && prevCamera.timestamp !== undefined && timestamp > nextCamera.timestamp) {
-        var coord = new itowns.Coordinates('EPSG:4978', nextCamera.position.x, nextCamera.position.y, nextCamera.position.z);
-        viewCamera.up.copy(coord.geodesicNormal);
-    }
     interpolateCamera(timestamp);
-    if (prevCamera.timestamp !== undefined) view.notifyChange(view.camera.camera3D, true);
+    if (prevCamera.timestamp !== undefined) {
+        view.notifyChange(view.camera.camera3D, true);
+        if (timestamp > nextCamera.timestamp) {
+            var coord = new itowns.Coordinates('EPSG:4978', viewCamera.position.x, viewCamera.position.y, viewCamera.position.z);
+            viewCamera.up.copy(coord.geodesicNormal);
+        }
+    }
 }

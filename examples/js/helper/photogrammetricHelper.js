@@ -25,8 +25,8 @@ var textures = {}, images = {};
 
 var params = {
     collection: {name: undefined, url: undefined, overview: false},
-    cameras: {size: 10000, near: 0.1, far: 15000},
-    environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
+    cameras: {size: 10000, near: 0.1, far: 15000, zoom: 0.5},
+    environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0, control: 1},
     distortion: {rmax: 1.},
     interpolation: {duration: 3., fitCamera: false},
     load: {number: 0, done: false},
@@ -482,7 +482,13 @@ function loadJSON(material, path, file) {
 
         if(json.camera) {
             if(json.camera.scale) params.cameras.size = json.camera.scale;
-            if(json.camera.zoom) viewCamera.zoom = json.camera.zoom;
+            if(json.camera.marker) params.markers.scale = json.camera.marker;
+            if(json.camera.zoom) {
+                viewCamera.zoom = json.camera.zoom;
+                params.cameras.zoom = json.camera.zoom;
+            }
+            if(json.camera.far) params.cameras.far = json.camera.far;
+            else params.cameras.far = params.environment.radius+params.environment.epsilon;
         }
 
         if(json.environment) {
@@ -490,6 +496,8 @@ function loadJSON(material, path, file) {
             if(json.environment.epsilon) params.environment.epsilon = json.environment.epsilon;
             if(json.environment.elevation) params.environment.elevation = json.environment.elevation;
         }
+
+        params.cameras.far = params.environment.radius+params.environment.epsilon;
         
         if(json.up) viewCamera.up.copy(json.up);
         if(json.pointSize) material.size = json.pointSize;
@@ -551,7 +559,7 @@ function handleCamera(camera, name){
     if (camera.check) check = camera.check() ? '[Y]' : '[N]';
     console.log(check, name);
     
-    camera.far = params.environment.radius+params.environment.epsilon;
+    camera.far = params.cameras.far;
     camera.near = 0.1;
     camera.setDistortionRadius();
     camera.updateProjectionMatrix();
@@ -615,14 +623,18 @@ function handleMesh(name, material){
 }
 
 /* Gets ---------------------------------------------- */
-function getCamera(camera, delta = 0) {
-    const array = cameras.children.filter(cam => names.includes(cam.name));
+function getCamera(camera, delta = 0, filter = true) {
+    var array;
+    if(filter) array = cameras.children.filter(cam => names.includes(cam.name));
+    else array = cameras.children;
     const index = array.findIndex(cam => cam.name == camera.name);
     if(index > -1) return array[(index + delta + array.length) % array.length];
 }
 
-function getCameraByName(name, delta = 0) {
-    const array = cameras.children.filter(cam => names.includes(cam.name));
+function getCameraByName(name, delta = 0, filter = true) {
+    var array;
+    if(filter) array = cameras.children.filter(cam => names.includes(cam.name));
+    else array = cameras.children;
     const index = array.findIndex(cam => cam.name == name);
     if(index > -1) return array[(index + delta + array.length) % array.length];
 }
@@ -772,12 +784,7 @@ function interpolateCamera(timestamp) {
             prevCamera.timestamp = undefined;
             nextCamera.timestamp = undefined;
             
-            if(controls) controls.reset(true);
-
-            //if(params.interpolation.fitCamera) {
-            //    fitCameraToSelection(viewCamera, images);
-            //    params.interpolation.fitCamera = false;
-            //}
+            if(controls && params.environment.control == 1) controls.reset(true);
 
             //showMaterials(true);
         }
@@ -787,34 +794,37 @@ function interpolateCamera(timestamp) {
 
 // Ref: https://discourse.threejs.org/t/camera-zoom-to-fit-object/936/24
 function fitCameraToSelection(camera, set, fitOffset = 1.) {
+    if(multipleTextureMaterial) multipleTextureMaterial.footprint.heatmap = true;
     // Create bounding box based on all projected points
     const box = new THREE.Box3();
 
-    var min, max;
     Object.values(set).forEach(item => {
+        var camera = getCamera(item.camera, 0, false);
+
+        var proj = camera.projectionMatrix.clone();
+        var world = camera.matrixWorld.clone();
+        var inverseWorld = new THREE.Matrix4().getInverse(world);
+
+        var frustum = new THREE.Frustum();
+        frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(proj, inverseWorld));
+
         Object.values(item.projectedPoints).forEach(p => {
-            if(min) min = min.min(p);
-            else min = p.clone();
+            
+            if(frustum.containsPoint(p)) box.expandByPoint(p);
 
-            if(max) max = max.max(p);
-            else max = p.clone();
 
-            box.expandByPoint(p);
-        
             // visible points to check the correct position
-            const geometry = new THREE.SphereBufferGeometry(10, 32, 32);
-            const material = new THREE.MeshBasicMaterial( {color: 0xff0000} );
-            const sphere = new THREE.Mesh( geometry, material );
-            sphere.position.copy(p);
-            sphere.updateMatrixWorld();
-            sphere.updateWorldMatrix();
-            view.scene.add(sphere);
+            //const geometry = new THREE.SphereBufferGeometry(10, 32, 32);
+            //const material = new THREE.MeshBasicMaterial( {color: 0xff0000} );
+            //const sphere = new THREE.Mesh( geometry, material );
+            //sphere.position.copy(p);
+            //sphere.updateMatrixWorld();
+            //sphere.updateWorldMatrix();
+            //view.scene.add(sphere);
         });
     });
 
-    view.scene.add(boxHelper(box));
-    console.log(box.min, min);
-    console.log(box.max, max);
+    //view.scene.add(boxHelper(box));
 
     // Center and size of the bounding box
     const size = box.getSize(new THREE.Vector3());
@@ -828,7 +838,6 @@ function fitCameraToSelection(camera, set, fitOffset = 1.) {
     const direction = center.clone().sub(camera.position).normalize().multiplyScalar(distance);
 
     var updateCamera = camera.clone();
-    updateCamera.zoom = 1.;
     updateCamera.position.copy(center).sub(direction);
     updateCamera.lookAt(center);
     updateCamera.updateProjectionMatrix();
@@ -865,8 +874,8 @@ function boxHelper(box) {
 function basicClean() {
     params = {
         collection: {name: undefined, url: undefined, overview: false},
-        cameras: {size: 10000, near: 0.1, far: 15000},
-        environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
+        cameras: {size: 10000, near: 0.1, far: 15000, zoom: 0.5},
+        environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0, control: 1},
         distortion: {rmax: 1.},
         interpolation: {duration: 3., fitCamera: false},
         load: {number: 0, done: false},
@@ -886,7 +895,7 @@ function basicClean() {
     
     if(textureMaterial) textureMaterial.map = null;
 
-    if(controls) controls.reset();
+    if(controls && params.environment.control == 1) controls.reset();
 
     while(environment.children.length > 2) environment.remove(environment.children[environment.children.length - 1]);
 
@@ -903,7 +912,12 @@ function basicClean() {
 }
 
 function cleanExtent(cams) {
-    cams.forEach( cam => {
-        if(multipleTextureMaterial) multipleTextureMaterial.removeCamera(cam);
-    });
+    if(multipleTextureMaterial) {
+        cams.forEach(cam => multipleTextureMaterial.removeCamera(cam));
+        multipleTextureMaterial.footprint.image = true;
+        multipleTextureMaterial.footprint.heatmap = false;
+    }
+    
+    
+    viewCamera.zoom = params.cameras.zoom;
 }

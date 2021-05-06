@@ -120,15 +120,12 @@
                 height = window.innerHeight;
 
                 // View Camera
-                viewCamera.zoom = 0.5;
+                viewCamera.zoom = params.cameras.zoom;
                 viewCamera.up.set(0, 0, 1);
 
                 // Globe
                 initGlobe(container, viewCamera);
                 globeRendering = true;
-            
-                // Controls
-                controls = new itowns.FirstPersonControls(view);
 
                 // Scene
                 scene = view.scene;
@@ -314,7 +311,15 @@
                     view.notifyChange(view.camera.camera3D);
                 };
 
+                function updateControlFromGUI(value) {
+                    params.environment.control = value;
+                    controls.dispose();
+                    if(value < 1) controls = new itowns.GlobeControls(view, itowns.CameraUtils.getTransformCameraLookingAtTarget(view, viewCamera));
+                    else controls = new itowns.FirstPersonControls(view);
+                }
+
                 var viewGUI = gui.addFolder('View Camera'); 
+                viewGUI.controls = viewGUI.add(params.environment, 'control', {globe: 0, person: 1}).onChange(updateControlFromGUI); 
                 viewGUI.zoom = viewGUI.add(viewCamera, 'zoom', 0.1, 2.0).onChange(updateViewCameraFromGUI);
                 const minMaxView = new MinMaxGUIHelper(viewCamera, 'near', 'far', 0.1);
                 viewGUI.near = viewGUI.add(minMaxView, 'min', 0.1, 30, 0.1).name('near').onChange(updateViewCameraFromGUI);
@@ -419,6 +424,9 @@
                     backgroundGUI.sphere.setValue(environment.children[0].visible);
                     backgroundGUI.plane.setValue(environment.children[1].visible);
                     backgroundGUI.elevation.setValue(params.environment.elevation);
+
+                    textureGUI.near.setValue(params.cameras.near);
+                    textureGUI.far.setValue(params.cameras.far);
                     
                     //var name = textureCamera.name;
                     //if (name.length > 0) {
