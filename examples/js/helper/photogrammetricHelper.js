@@ -125,12 +125,21 @@ function initSceneMaterialUniforms(vs, fs, material) {
 }
 
 function initSpriteMaterialUniforms(map, vs, fs) {
-    var uniforms = {
-        map: map,
+    //var uniforms = {
+    //    map: map,
+    //    color: 0x00ffff,
+    //    vertexColors: THREE.VertexColors,
+    //    fog: true,
+    //    depthTest: false,
+    //};
+
+    var uniforms = { 
+        map: map, 
         color: 0x00ffff,
-        vertexColors: THREE.VertexColors,
-        fog: true,
-        depthTest: false
+        size: 30, 
+        sizeAttenuation: false, 
+        alphaTest: 0.5, 
+        transparent: true 
     };
 
     return {uniforms: uniforms, thickness: 30., vertexShader: vs, fragmentShader: fs};
@@ -198,10 +207,20 @@ function cameraHelper(camera) {
 
     // place a sprite at the center point
     {
-        spriteMaterials[camera.name] = new THREE.SpriteMaterial(spriteMaterialUniforms.uniforms);
-        spriteMaterials[camera.name].onBeforeCompile = onBeforeCompileSprite;
-        const sprite = new THREE.Sprite(spriteMaterials[camera.name]);
-        sprite.scale.set(5, 5, 1);
+        //spriteMaterials[camera.name] = new THREE.SpriteMaterial(spriteMaterialUniforms.uniforms);
+        //spriteMaterials[camera.name].onBeforeCompile = onBeforeCompileSprite;
+        //const sprite = new THREE.Sprite(spriteMaterials[camera.name]);
+        //sprite.scale.set(5, 5, 1);
+        //sprite.onBeforeRender = onBeforeRenderSprite;
+        //sprite.userData.originalScale = new THREE.Vector3().copy( sprite.scale ); // optional
+        //group.add(sprite);
+
+        var vertices = v.slice(0, 3);
+        var geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        spriteMaterials[camera.name] = new THREE.PointsMaterial(spriteMaterialUniforms.uniforms);
+
+        const sprite = new THREE.Points(geometry, spriteMaterials[camera.name]);
         group.add(sprite);
     }
 
@@ -240,11 +259,30 @@ function cameraHelper(camera) {
         shader.vertexShader = spriteMaterialUniforms.vertexShader;
         shader.fragmentShader = spriteMaterialUniforms.fragmentShader;
     }
+
+    function onBeforeRenderSprite() {
+        var v = new THREE.Vector3();
+        var v1 = new THREE.Vector3();
+
+        return function onBeforeRender( renderer, scene, camera ) {
+
+            var factor = 0.05; // optional
+
+            v.setFromMatrixPosition( this.matrixWorld );
+            v1.setFromMatrixPosition( camera.matrixWorld );
+
+            var f = v.sub( v1 ).length() * factor;
+            this.scale.x = this.userData.originalScale.x * f;
+            this.scale.y = this.userData.originalScale.y * f;
+
+        }
+    }
 }
 
 function scaleCameraHelper() {
     if(marker && markerMaterials[marker.name] && marker.scale.x < 2 + params.markers.scale){
         marker.scale.addScalar(0.5);
+        spriteMaterials[marker.name].size += 2;
         markerMaterials[marker.name].linewidth += 1;
         marker.updateMatrixWorld();
         view.notifyChange(true);
@@ -255,6 +293,7 @@ function scaleCameraHelper() {
 function downscaleCameraHelper() {
     if(marker && markerMaterials[marker.name] && marker.scale.x > params.markers.scale){
         marker.scale.addScalar(-0.5);
+        spriteMaterials[marker.name].size -= 2;
         markerMaterials[marker.name].linewidth -= 1;
         marker.updateMatrixWorld();
         view.notifyChange(true);

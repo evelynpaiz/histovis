@@ -18,8 +18,8 @@ void main() {
 	scale.x = length( vec3( modelMatrix[ 0 ].x, modelMatrix[ 0 ].y, modelMatrix[ 0 ].z ) );
 	scale.y = length( vec3( modelMatrix[ 1 ].x, modelMatrix[ 1 ].y, modelMatrix[ 1 ].z ) );
 
-	bool isPerspective = isPerspectiveMatrix( projectionMatrix );
-	if ( isPerspective ) scale *= - 0.005*mvPosition.z;
+	//bool isPerspective = isPerspectiveMatrix( projectionMatrix );
+	//if ( isPerspective ) scale *= - 0.005*mvPosition.z;
 
 	vec2 alignedPosition = ( position.xy - ( center - vec2( 0.5 ) ) ) * scale;
 

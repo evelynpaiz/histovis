@@ -233,7 +233,6 @@ function updateEnvironmentGlobe() {
 
 /* Movement ------------------------------------------ */
 function interpolateCameraGlobe(timestamp) {
-    interpolateCamera(timestamp);
     if (prevCamera.timestamp !== undefined) {
         view.notifyChange(view.camera.camera3D, true);
         if (timestamp > nextCamera.timestamp) {
@@ -241,4 +240,6 @@ function interpolateCameraGlobe(timestamp) {
             viewCamera.up.copy(coord.geodesicNormal);
         }
     }
+    interpolateCamera(timestamp);
+    
 }

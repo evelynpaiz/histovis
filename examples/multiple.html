@@ -181,6 +181,7 @@
                 // Raycaster and mouse
                 raycaster = new THREE.Raycaster();
                 raycaster.params.Line.threshold = 3;
+                raycaster.params.Points.threshold = 50;
                 raycaster.camera = viewCamera;
 
                 mouse = new THREE.Vector2();
