@@ -25,13 +25,13 @@ var textures = {}, images = {};
 
 var params = {
     collection: {name: undefined, url: undefined, overview: false},
-    cameras: {size: 10000, near: 0.1, far: 15000, zoom: 0.5},
-    environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0, control: 1},
+    cameras: {size: 10000, visible: true, near: 0.1, far: 15000, zoom: 0.5, linewidth: 3},
+    environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0, far: 15000},
     distortion: {rmax: 1.},
     interpolation: {duration: 3., fitCamera: false},
     load: {number: 0, done: false},
-    mouse: {timer: 0, delay: 200, prevent: false},
-    markers: {scale: 4, near: true, far: true, target: false}
+    mouse: {control: 1, timer: 0, delay: 200, prevent: false},
+    markers: {scale: 4, linewidth: 3, near: true, far: true, target: false}
 };
 
 var dates = {}, names = [], markers = [];
@@ -78,6 +78,7 @@ function initMultipleTextureMaterial(vs, fs, map, renderer) {
    var uniforms = {
         map: map,
         size: 2,
+        linewidth: params.cameras.linewidth,
         sizeAttenuation: false,
         transparent: true,
         vertexColors: THREE.VertexColors,
@@ -148,7 +149,7 @@ function initSpriteMaterialUniforms(map, vs, fs) {
 function initMarkerMaterialUniforms(vs, fs) {
     var uniforms = {
         color: 0x2196F3,
-        linewidth: 3,       // in pixels
+        linewidth: params.markers.linewidth,       // in pixels
         dashed: false,
         transparent: true,
         vertexShader: vs,
@@ -332,7 +333,18 @@ function onDocumentMouseMove(event) {
 
     if (intersects.length > 0 && prevCamera.timestamp == undefined) {
         //Return the marker to the original state before 
-        if(marker.name != "" && marker.name != intersects[0].object.parent.name) downscaleCameraHelper();
+        if(marker.name != "" && marker.name != intersects[0].object.parent.name) {
+            marker.children[3].visible = false;
+            
+            var camera = getCameraByName(marker.name);
+
+            if(camera) {
+                if(!params.collection.overview) {
+                    if(!marker.userData.selected) multipleTextureMaterial.removeCamera(camera);
+                } else multipleTextureMaterial.setBorder(camera, {showImage: false});
+            }
+            downscaleCameraHelper();
+        }
         else {
             marker = intersects[0].object.parent;
             if(marker.name != textureCamera.name) marker.children[3].visible = params.markers.far && true;
@@ -346,8 +358,7 @@ function onDocumentMouseMove(event) {
                 } else multipleTextureMaterial.setBorder(camera, {showImage: true});
             }
         }
-    } else if(prevCamera.timestamp == undefined){
-        downscaleCameraHelper();
+    } else if(prevCamera.timestamp == undefined) {
         if(marker.name != "") {
             marker.children[3].visible = false;
             
@@ -359,6 +370,7 @@ function onDocumentMouseMove(event) {
                 } else multipleTextureMaterial.setBorder(camera, {showImage: false});
             }
         }
+        downscaleCameraHelper();
     }
 }
 
@@ -526,17 +538,16 @@ function loadJSON(material, path, file) {
                 viewCamera.zoom = json.camera.zoom;
                 params.cameras.zoom = json.camera.zoom;
             }
-            if(json.camera.far) params.cameras.far = json.camera.far;
-            else params.cameras.far = params.environment.radius+params.environment.epsilon;
         }
 
         if(json.environment) {
             if(json.environment.radius) params.environment.radius = json.environment.radius;
             if(json.environment.epsilon) params.environment.epsilon = json.environment.epsilon;
             if(json.environment.elevation) params.environment.elevation = json.environment.elevation;
+            if(json.environment.far) params.environment.far = json.environment.far;
         }
 
-        params.cameras.far = params.environment.radius+params.environment.epsilon;
+        params.cameras.far = params.environment.radius + params.environment.epsilon;
         
         if(json.up) viewCamera.up.copy(json.up);
         if(json.pointSize) material.size = json.pointSize;
@@ -810,6 +821,7 @@ function showMaterials(state) {
 /* Movement ------------------------------------------ */
 function interpolateCamera(timestamp) {
     if (prevCamera.timestamp !== undefined) {
+        cameras.visible = false;
         if (prevCamera.timestamp == 0) {
             prevCamera.timestamp = timestamp;
             nextCamera.timestamp = prevCamera.timestamp + 1000 * params.interpolation.duration;
@@ -823,6 +835,7 @@ function interpolateCamera(timestamp) {
             prevCamera.timestamp = undefined;
             nextCamera.timestamp = undefined;
             
+            cameras.visible = params.cameras.visible;
             if(controls && params.environment.control == 1) controls.reset(true);
 
             //showMaterials(true);
@@ -833,12 +846,18 @@ function interpolateCamera(timestamp) {
 
 // Ref: https://discourse.threejs.org/t/camera-zoom-to-fit-object/936/24
 function fitCameraToSelection(camera, set, fitOffset = 1.) {
-    if(multipleTextureMaterial) multipleTextureMaterial.footprint.heatmap = true;
+    if(multipleTextureMaterial) {
+        multipleTextureMaterial.footprint.heatmap = true;
+        multipleTextureMaterial.footprint.border = 1;
+    }
     // Create bounding box based on all projected points
     const box = new THREE.Box3();
 
     Object.values(set).forEach(item => {
-        var camera = getCamera(item.camera, 0, false);
+        var camera = getCamera(item.camera, 0, false).clone();
+
+        camera.far = params.environment.far;
+        camera.updateProjectionMatrix();
 
         var proj = camera.projectionMatrix.clone();
         var world = camera.matrixWorld.clone();
@@ -913,13 +932,13 @@ function boxHelper(box) {
 function basicClean() {
     params = {
         collection: {name: undefined, url: undefined, overview: false},
-        cameras: {size: 10000, near: 0.1, far: 15000, zoom: 0.5},
-        environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0, control: 1},
+        cameras: {size: 10000, visible: true, near: 0.1, far: 15000, zoom: 0.5, linewidth: 3},
+        environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0, far: 15000},
         distortion: {rmax: 1.},
         interpolation: {duration: 3., fitCamera: false},
         load: {number: 0, done: false},
-        mouse: {timer: 0, delay: 200, prevent: false},
-        markers: {scale: 4, near: true, far: true, target: false}
+        mouse: {control: 1, timer: 0, delay: 200, prevent: false},
+        markers: {scale: 4, linewidth: 3, near: true, far: true, target: false}
     };
 
     const camera = new PhotogrammetricCamera();
@@ -955,8 +974,8 @@ function cleanExtent(cams) {
         cams.forEach(cam => multipleTextureMaterial.removeCamera(cam));
         multipleTextureMaterial.footprint.image = true;
         multipleTextureMaterial.footprint.heatmap = false;
+        multipleTextureMaterial.footprint.border = 2;
     }
-    
     
     viewCamera.zoom = params.cameras.zoom;
 }

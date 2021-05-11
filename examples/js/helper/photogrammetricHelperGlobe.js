@@ -144,15 +144,16 @@ function loadJSONGlobe(material, path, file, c) {
                 viewCamera.zoom = json.camera.zoom;
                 params.cameras.zoom = json.camera.zoom;
             }
-            if(json.camera.far) params.cameras.far = json.camera.far;
-            else params.cameras.far = params.environment.radius+params.environment.epsilon;
         }
 
         if(json.environment) {
             if(json.environment.radius) params.environment.radius = json.environment.radius;
             if(json.environment.epsilon) params.environment.epsilon = json.environment.epsilon;
             if(json.environment.elevation) params.environment.elevation = json.environment.elevation;
+            if(json.environment.far) params.environment.far = json.environment.far;
         }
+
+        params.cameras.far = params.environment.radius + params.environment.epsilon;
         
         if(json.up) viewCamera.up.copy(json.up);
         if(json.pointSize) material.size = json.pointSize;
@@ -160,7 +161,7 @@ function loadJSONGlobe(material, path, file, c) {
         updateEnvironmentGlobe();
 
         if(json.ori && json.img) {
-            params.load.number = json.img.length;
+            params.load.number += json.img.length;
             json.ori.forEach((orientationUrl, i) => {
                 if(c && collections[c].cameras) {
                     const match = orientationUrl.match(/Orientation-(.*)\.[\w\d]*\.xml/i);
@@ -172,7 +173,7 @@ function loadJSONGlobe(material, path, file, c) {
         }
 
         if(json.groupimg) {
-            params.load.number = json.groupimg.length;
+            params.load.number += json.groupimg.length;
             Object.keys(json.groupimg).forEach((image) => {
                 if(c && collections[c].cameras) {
                     collections[c].cameras.push(image);
@@ -187,6 +188,8 @@ function loadJSONGlobe(material, path, file, c) {
 
 function unloadJSONGlobe(c) {
     if(collections[c] && collections[c].cameras) {
+        params.load.number -= collections[c].cameras.length;
+
         collections[c].cameras.forEach(name => {
             const nidex = names.findIndex(n => n == name);
             if(nidex > -1) delete names[nidex];
@@ -236,10 +239,16 @@ function interpolateCameraGlobe(timestamp) {
     if (prevCamera.timestamp !== undefined) {
         view.notifyChange(view.camera.camera3D, true);
         if (timestamp > nextCamera.timestamp) {
-            var coord = new itowns.Coordinates('EPSG:4978', viewCamera.position.x, viewCamera.position.y, viewCamera.position.z);
-            viewCamera.up.copy(coord.geodesicNormal);
+            var coord = new itowns.Coordinates('EPSG:4978', nextCamera.position.x, nextCamera.position.y, nextCamera.position.z);
+
+            var target = itowns.CameraUtils.getTransformCameraLookingAtTarget(view, nextCamera);
+            
+            //viewCamera.up.copy(coord.geodesicNormal);
+            viewCamera.up.copy(target.coord.geodesicNormal);
+            //viewCamera.lookAt(target.targetWorldPosition);
+
+            if(controls && params.environment.control == 1) controls.reset(false);
         }
     }
     interpolateCamera(timestamp);
-    
 }

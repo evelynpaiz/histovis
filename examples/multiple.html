@@ -133,6 +133,7 @@
 
                 // Cameras 
                 cameras = new THREE.Group();
+                cameras.visible = params.cameras.visible;
                 scene.add(viewCamera);
                 scene.add(cameras);
 
@@ -181,7 +182,7 @@
                 // Raycaster and mouse
                 raycaster = new THREE.Raycaster();
                 raycaster.params.Line.threshold = 3;
-                raycaster.params.Points.threshold = 50;
+                raycaster.params.Points.threshold = 30;
                 raycaster.camera = viewCamera;
 
                 mouse = new THREE.Vector2();
@@ -313,14 +314,14 @@
                 };
 
                 function updateControlFromGUI(value) {
-                    params.environment.control = value;
+                    params.mouse.control = value;
                     controls.dispose();
                     if(value < 1) controls = new itowns.GlobeControls(view, itowns.CameraUtils.getTransformCameraLookingAtTarget(view, viewCamera));
                     else controls = new itowns.FirstPersonControls(view);
                 }
 
                 var viewGUI = gui.addFolder('View Camera'); 
-                viewGUI.controls = viewGUI.add(params.environment, 'control', {globe: 0, person: 1}).onChange(updateControlFromGUI); 
+                viewGUI.controls = viewGUI.add(params.mouse, 'control', {globe: 0, person: 1}).onChange(updateControlFromGUI); 
                 viewGUI.zoom = viewGUI.add(viewCamera, 'zoom', 0.1, 2.0).onChange(updateViewCameraFromGUI);
                 const minMaxView = new MinMaxGUIHelper(viewCamera, 'near', 'far', 0.1);
                 viewGUI.near = viewGUI.add(minMaxView, 'min', 0.1, 30, 0.1).name('near').onChange(updateViewCameraFromGUI);
@@ -346,14 +347,25 @@
 
 
                 // Footprint
+                function updateFootprintBorderFromGUI(value) {
+                    params.cameras.linewidth = value;
+                    multipleTextureMaterial.border.forEach(b => b.linewidth = value);
+                    view.notifyChange(true);
+                }
+
                 var footprintGUI = gui.addFolder('Footprint');
-                footprintGUI.opacity = footprintGUI.add(multipleTextureMaterial, 'opacity', 0, 1);
                 footprintGUI.image = footprintGUI.add(multipleTextureMaterial.footprint, 'image');
                 footprintGUI.heatmap = footprintGUI.add(multipleTextureMaterial.footprint, 'heatmap');
-                footprintGUI.distortion = footprintGUI.add(multipleTextureMaterial.footprint, 'border', {none: 0, around: 1, complete: 2});
+                footprintGUI.opacity = footprintGUI.add(multipleTextureMaterial, 'opacity', 0, 1);
+
+                var borderGUI = footprintGUI.addFolder('Border');
+                borderGUI.border = borderGUI.add(multipleTextureMaterial.footprint, 'border', {none: 0, around: 1, complete: 2});
+                borderGUI.line = borderGUI.add(params.cameras, 'linewidth', 1, 10, 0.5).onChange(updateFootprintBorderFromGUI);
+                borderGUI.borderSharpness = borderGUI.add(multipleTextureMaterial.debug, 'borderSharpness', 2, 1000).name("sharpness");
 
                 // Viewpoint Markers
                 function updateViewpointMarkersFromGUI(value) {
+                    params.cameras.visible = value;
                     cameras.visible = value;
                     multipleTextureMaterial.border.visible = value;
                     view.notifyChange(true);
@@ -376,11 +388,18 @@
                     view.notifyChange(true);
                 }
 
+                function updateMarkerLineFromGUI(value) {
+                    params.markers.linewidth = value;
+                    Object.values(markerMaterials).forEach(m => m.linewidth = value);
+                    view.notifyChange(true);
+                }
+
                 var markerGUI = gui.addFolder('Viewpoint Markers');
+                markerGUI.line = markerGUI.add(params.markers, 'linewidth', 1, 10, 0.5).onChange(updateMarkerLineFromGUI);
                 markerGUI.show = markerGUI.add(cameras, 'visible').onChange(updateViewpointMarkersFromGUI).name('show');
-                markerGUI.near = markerGUI.add(params.markers, 'target').onChange(updateMarkerTargetFromGUI);
+                markerGUI.target = markerGUI.add(params.markers, 'target').onChange(updateMarkerTargetFromGUI);
                 markerGUI.near = markerGUI.add(params.markers, 'near').onChange(updateMarkerNearFromGUI);
-                markerGUI.near = markerGUI.add(params.markers, 'far').onChange(updateMarkerFarFromGUI);
+                markerGUI.far = markerGUI.add(params.markers, 'far').onChange(updateMarkerFarFromGUI);
 
                 // Clustering options
                 function updateClusterFromGUI(value) {
@@ -404,16 +423,12 @@
                     else updateEnvironment();
                 }
                 var backgroundGUI = gui.addFolder('Background');
-                backgroundGUI.wireframe = backgroundGUI.add(multipleTextureMaterial, 'wireframe');
-                backgroundGUI.sphere = backgroundGUI.add(backgroundSphere, 'visible').name('sphere visible');
-                backgroundGUI.plane = backgroundGUI.add(worldPlane, 'visible').name('plane visible');
+                backgroundGUI.far = backgroundGUI.add(params.environment, 'far', 0.1, 15000, 0.1);
                 backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -200, 200)
                     .name('plane elevation').onChange(updateElevationFromGUI);
-
-                // Debug
-                var debugGUI = gui.addFolder('Debug');
-                debugGUI.borderSharpness = debugGUI.add(multipleTextureMaterial.debug, 'borderSharpness', 2, 1000).name("border sharpness");
-                debugGUI.diffuseColorGrey = debugGUI.add(multipleTextureMaterial.debug, 'diffuseColorGrey');
+                backgroundGUI.sphere = backgroundGUI.add(backgroundSphere, 'visible').name('sphere visible');
+                backgroundGUI.plane = backgroundGUI.add(worldPlane, 'visible').name('plane visible');
+                backgroundGUI.wireframe = backgroundGUI.add(multipleTextureMaterial, 'wireframe');
 
                 // Place it in the correct dom element
                 var bar = document.getElementById('mySidebar');
@@ -422,18 +437,23 @@
                 // Update controls functions
                 gui.updateGUI = function updateGUI() {
                     viewGUI.zoom.setValue(viewCamera.zoom);
-                    backgroundGUI.sphere.setValue(environment.children[0].visible);
-                    backgroundGUI.plane.setValue(environment.children[1].visible);
-                    backgroundGUI.elevation.setValue(params.environment.elevation);
+                    //viewGUI.near.setValue(viewCamera.near);
+                    //viewGUI.far.setValue(viewCamera.far);
 
                     textureGUI.near.setValue(params.cameras.near);
                     textureGUI.far.setValue(params.cameras.far);
-                    
-                    //var name = textureCamera.name;
-                    //if (name.length > 0) {
-                    //    if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
-                    //    textureGUI.name = 'Hist: ' + name;
-                    //}
+
+                    footprintGUI.image.setValue(multipleTextureMaterial.footprint.image);
+                    footprintGUI.heatmap.setValue(multipleTextureMaterial.footprint.heatmap);
+                    borderGUI.border.setValue(multipleTextureMaterial.footprint.border);
+
+                    backgroundGUI.sphere.setValue(environment.children[0].visible);
+                    backgroundGUI.plane.setValue(environment.children[1].visible);
+                    backgroundGUI.elevation.setValue(params.environment.elevation);
+                    backgroundGUI.far.setValue(params.environment.far);
+
+                    textureGUI.near.setValue(params.cameras.near);
+                    textureGUI.far.setValue(params.cameras.far);
 
                     clusteringGUI.images.max(Object.values(names).length);
                     clusteringGUI.images.setValue(Math.floor(params.clustering.images));
