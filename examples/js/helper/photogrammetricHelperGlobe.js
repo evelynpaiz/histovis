@@ -5,6 +5,9 @@ var buildings = [];
 
 var globeRendering = true;
 
+const cameraTarget = new THREE.Object3D();
+cameraTarget.matrixWorldInverse = new THREE.Matrix4();
+
 /* ----------------------- Functions --------------------- */
 
 /* Environment --------------------------------------- */
@@ -234,17 +237,69 @@ function updateEnvironmentGlobe() {
     environment.visible = true;
 }
 
+function updateTargetGlobe(camera) {
+    var pickedPosition = new THREE.Vector3();
+    var targetPosition = new THREE.Vector3();
+
+    // Update camera's target position
+    view.getPickingPositionFromDepth(null, pickedPosition);
+    const distance = !isNaN(pickedPosition.x) ? camera.position.distanceTo(pickedPosition) : 100;
+    targetPosition.set(0, 0, -distance);
+    camera.localToWorld(targetPosition);
+
+    // set new camera target on globe
+    positionObject(targetPosition, cameraTarget);
+
+    camera.up.copy(cameraTarget.position).normalize();
+
+    function positionObject(newPosition, object) {
+        const xyz = new itowns.Coordinates('EPSG:4978', 0, 0, 0);
+        const c = new itowns.Coordinates('EPSG:4326', 0, 0, 0);
+
+        xyz.setFromVector3(newPosition).as('EPSG:4326', c);
+        object.position.copy(newPosition);
+        object.lookAt(c.geodesicNormal.add(newPosition));
+        object.rotateX(Math.PI * 0.5);
+        object.updateMatrixWorld(true);
+    }
+}
+
 /* Movement ------------------------------------------ */
 function interpolateCameraGlobe(timestamp) {
     if (prevCamera.timestamp !== undefined) {
         view.notifyChange(view.camera.camera3D, true);
         if (timestamp > nextCamera.timestamp) {
-            var coord = new itowns.Coordinates('EPSG:4978', nextCamera.position.x, nextCamera.position.y, nextCamera.position.z);
 
-            var target = itowns.CameraUtils.getTransformCameraLookingAtTarget(view, nextCamera);
+            //var pickedPosition = new THREE.Vector3();
+            //var targetPosition = new THREE.Vector3();
+
+            // Update camera's target position
+            //view.getPickingPositionFromDepth(null, pickedPosition);
+            //const distance = !isNaN(pickedPosition.x) ? nextCamera.position.distanceTo(pickedPosition) : 100;
+            //targetPosition.set(0, 0, -distance);
+            //nextCamera.localToWorld(targetPosition);
+            
+            //var direction = targetPosition.clone().sub(nextCamera.position).normalize();
+
+            //var right = direction.cross(new THREE.Vector3(0., 1., 0.)).normalize();
+            //var up = right.cross(direction).normalize();
+
+            //viewCamera.up.copy(up);
+
+            updateTargetGlobe(nextCamera);
+            if(controls) {
+                if(params.mouse.control == 1) controls.reset(true);
+                else {
+                    controls.updateTarget();
+                    controls.update();
+                }
+            } 
+
+            //var coord = new itowns.Coordinates('EPSG:4978', nextCamera.position.x, nextCamera.position.y, nextCamera.position.z);
+            //var target = itowns.CameraUtils.getTransformCameraLookingAtTarget(view, nextCamera);
             
             //viewCamera.up.copy(coord.geodesicNormal);
-            viewCamera.up.copy(target.coord.geodesicNormal);
+            //viewCamera.up.copy(target.coord.geodesicNormal);
             //viewCamera.lookAt(target.targetWorldPosition);
         }
     }

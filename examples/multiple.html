@@ -317,8 +317,14 @@
                 function updateControlFromGUI(value) {
                     params.mouse.control = value;
                     controls.dispose();
-                    if(value < 1) controls = new itowns.GlobeControls(view, itowns.CameraUtils.getTransformCameraLookingAtTarget(view, viewCamera));
-                    else controls = new itowns.FirstPersonControls(view);
+                    if(value < 1) {
+                        controls = new itowns.GlobeControls(view, itowns.CameraUtils.getTransformCameraLookingAtTarget(view, viewCamera));
+                        controls.updateTarget();
+                        controls.update();
+                    } else {
+                        controls = new itowns.FirstPersonControls(view);
+                        controls.reset();
+                    }
                 }
 
                 var viewGUI = gui.addFolder('View Camera'); 

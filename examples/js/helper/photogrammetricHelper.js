@@ -836,8 +836,6 @@ function interpolateCamera(timestamp) {
             nextCamera.timestamp = undefined;
             
             cameras.visible = params.cameras.visible;
-            if(controls && params.environment.control == 1) controls.reset(true);
-
             //showMaterials(true);
         }
         viewCamera.updateProjectionMatrix(); 
@@ -953,7 +951,7 @@ function basicClean() {
     
     if(textureMaterial) textureMaterial.map = null;
 
-    if(controls && params.environment.control == 1) controls.reset();
+    if(controls && params.mouse.control == 1) controls.reset();
 
     while(environment.children.length > 2) environment.remove(environment.children[environment.children.length - 1]);
 
