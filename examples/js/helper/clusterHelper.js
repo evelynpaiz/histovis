@@ -25,8 +25,7 @@ function updateCluster(camera) {
     // Update the projected points of the images
     Object.values(images).forEach(image => {   
         if(image.camera) {
-            image.updatePoints([worldPlane, backgroundSphere]); 
-            //image.updatePoints(view.scene.children);
+            //image.updatePoints([worldPlane, backgroundSphere]); // cause of the bottleneck
             if(image.camera.name == camera.name) image.distance = 0; // make the current visualized image the priority
             else image.updateDistance(origin);
         }
@@ -34,7 +33,7 @@ function updateCluster(camera) {
 
     // Filter only images that are selected
     var filtered = Object.entries(images).filter(([name, value]) => names.includes(name)).map(([name, value]) => {return value});
-    
+
     // Max of all image distances
     var maxDistanceProjection = Math.max.apply(Math, filtered.map(image => image.distance));
 
@@ -44,7 +43,7 @@ function updateCluster(camera) {
         image.visible = false;
         Object.values(image.projectedPoints).forEach(p => image.visible = image.visible || frustum.containsPoint(p));
     });
-
+    
     // Rank weights in descending order
     filtered = filtered.sort((a,b) => (a.weight < b.weight) ? 1 : ((b.weight < a.weight) ? -1 : 0));
     filtered = filtered.filter((i, index) => (index < params.clustering.images));

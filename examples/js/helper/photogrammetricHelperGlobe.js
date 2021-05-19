@@ -246,8 +246,6 @@ function interpolateCameraGlobe(timestamp) {
             //viewCamera.up.copy(coord.geodesicNormal);
             viewCamera.up.copy(target.coord.geodesicNormal);
             //viewCamera.lookAt(target.targetWorldPosition);
-
-            if(controls && params.environment.control == 1) controls.reset(false);
         }
     }
     interpolateCamera(timestamp);

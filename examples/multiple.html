@@ -246,15 +246,16 @@
                 };
 
                 // Event listeners
-                container.addEventListener('keydown', onDocumentKeyDown, false);
+                view.domElement.addEventListener('keydown', onDocumentKeyDown, false);
+                
                 window.addEventListener('resize', function() {
                     var canvas = renderer.domElement;
                     border = new Border(canvas.width, canvas.height);
                 }, false);
 
-                container.addEventListener('mousemove', onDocumentMouseMove, false);
+                view.domElement.addEventListener('mousemove', onDocumentMouseMove, false);
 
-                container.addEventListener('click', event => {
+                view.domElement.addEventListener('click', event => {
                     params.mouse.timer = setTimeout(function() {
                     if (!params.mouse.prevent) {
                         onDocumentMouseClick(event);
@@ -263,7 +264,7 @@
                     }, params.mouse.delay);
                 });
 
-                container.addEventListener('dblclick', event => {
+                view.domElement.addEventListener('dblclick', event => {
                     clearTimeout(params.mouse.timer);
                     params.mouse.prevent = true;
                     onDocumentMouseDblClick(event);
@@ -471,7 +472,7 @@
                 else {
                     loadingScreen.style.display = 'none';
                     if(textureCamera.name == "" && names.length > 0) setCamera(getCameraByName(names[0]));
-                    //updateCluster(viewCamera);
+                    updateCluster(viewCamera);
                     //updateTimeline();
                     gui.updateGUI();
 
