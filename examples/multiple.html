@@ -334,7 +334,6 @@
                 viewGUI.near = viewGUI.add(minMaxView, 'min', 0.1, 30, 0.1).name('near').onChange(updateViewCameraFromGUI);
                 viewGUI.far = viewGUI.add(minMaxView, 'max', 0.1, 15000, 0.1).name('far').onChange(updateViewCameraFromGUI);
 
-
                 // Historical Cameras
                 function updateHistoricalImagesFromGUI() {
                     cameras.children.forEach(camera => {
@@ -351,7 +350,6 @@
                 const minMaxTexture = new MinMaxGUIHelper(params.cameras, 'near', 'far', 0.1);
                 textureGUI.near = textureGUI.add(minMaxTexture, 'min', 0.1, 30, 0.1).name('near').onChange(updateHistoricalImagesFromGUI);
                 textureGUI.far = textureGUI.add(minMaxTexture, 'max', 0.1, 15000, 0.1).name('far').onChange(updateHistoricalImagesFromGUI);
-
 
                 // Footprint
                 function updateFootprintBorderFromGUI(value) {
@@ -422,6 +420,24 @@
                 var clusteringGUI = gui.addFolder('Clustering');
                 clusteringGUI.images = clusteringGUI.add(params.clustering, 'images', 0, 0).onChange(updateClusterImageFromGUI);
                 clusteringGUI.clusters = clusteringGUI.add(params.clustering, 'clusters', 0, 0).onChange(updateClusterFromGUI);
+
+                // Scene
+                function updateSceneStyleFromGUI(value) {
+                    params.scene.style = value;
+
+                    var layers = view.getLayers(l => l.isColorLayer);
+                    layers.forEach(l => l.visible = false);
+                    if(value < 1) {
+                        globeLayer.abstract = true;
+                    } else {
+                        globeLayer.abstract = false;
+                        layers[value-1].visible = true;
+                    }
+                    view.notifyChange(this);
+                }
+
+                var sceneGUI = gui.addFolder('Scene');
+                sceneGUI.style = sceneGUI.add(params.scene, 'style', {abstract: 0, ortho: 1, opensm: 2, dark: 3}).onChange(updateSceneStyleFromGUI);
 
                 // Background 
                 function updateElevationFromGUI(value) {

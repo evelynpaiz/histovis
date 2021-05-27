@@ -1,13 +1,15 @@
 /* ---------------------- Variables ---------------------- */
 var view;
+var globeLayer;
 var environmentGlobe;
 var buildings = [];
 
 var globeRendering = true;
 
+params.scene = {style: 1};
+
 const cameraTarget = new THREE.Object3D();
 cameraTarget.matrixWorldInverse = new THREE.Matrix4();
-
 /* ----------------------- Functions --------------------- */
 
 /* Environment --------------------------------------- */
@@ -29,13 +31,21 @@ function initGlobe(container, camera) {
 
     // Add color layers
     itowns.Fetcher.json('layers/Ortho.json').then(addColorLayerFromConfig);
+    itowns.Fetcher.json('layers/OPENSM.json').then(addColorLayerFromConfig);
+    itowns.Fetcher.json('layers/DARK.json').then(addColorLayerFromConfig);
     // Add elevation layers
     itowns.Fetcher.json('layers/WORLD_DTM.json').then(addElevationLayerFromConfig);
     itowns.Fetcher.json('layers/IGN_MNT_HIGHRES.json').then(addElevationLayerFromConfig);
 
+    globeLayer = view.getLayers(l => l.isGlobeLayer)[0];
+
     function addColorLayerFromConfig(config) {
         config.source = new itowns.WMTSSource(config.source);
         var layer = new itowns.ColorLayer(config.id, config);
+        
+        const vis = layer.id == 'Ortho' ? true : false;
+        layer.visible = vis;
+        
         view.addLayer(layer);
     }
 
@@ -286,7 +296,11 @@ function interpolateCameraGlobe(timestamp) {
 
             //viewCamera.up.copy(up);
 
-            updateTargetGlobe(nextCamera);
+            //updateTargetGlobe(nextCamera);
+
+            var coord = new itowns.Coordinates('EPSG:4978', nextCamera.position.x, nextCamera.position.y, nextCamera.position.z);
+            viewCamera.up.copy(coord.geodesicNormal);
+
             if(controls) {
                 if(params.mouse.control == 1) controls.reset(true);
                 else {
