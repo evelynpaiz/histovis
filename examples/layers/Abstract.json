@@ -1,0 +1,8 @@
+{
+    "id":   "Abstract",
+    "source": {
+        "projection": "EPSG:3857",
+        "name": "Abstract"
+    },
+    "abstract": true
+}

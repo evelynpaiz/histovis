@@ -424,13 +424,12 @@
                 // Scene
                 function updateSceneStyleFromGUI(value) {
                     params.scene.style = value;
-
                     var layers = view.getLayers(l => l.isColorLayer);
                     layers.forEach(l => l.visible = false);
                     if(value < 1) {
-                        globeLayer.abstract = true;
+                        layers.forEach(l => l.abstract = true);
                     } else {
-                        globeLayer.abstract = false;
+                        layers.forEach(l => l.abstract = false);
                         layers[value-1].visible = true;
                     }
                     view.notifyChange(this);
