@@ -19,9 +19,18 @@ var basicMaterial, wireMaterial, textureMaterial, multipleTextureMaterial, viewM
 var textureMaterialUniforms, multipleTextureMaterialUniforms, viewMaterialUniforms, sceneMaterialUniforms, spriteMaterialUniforms, markerMaterialUniforms;
 
 var textureLoader = new THREE.TextureLoader();
+var imageLoader = new THREE.ImageLoader();
+
 const uvTexture = textureLoader.load('data/uv.jpg');
 const spriteTexture = textureLoader.load('data/sprite.png');
 var textures = {}, images = {};
+
+const lutTextures = {
+    identity: {size: 2, filter: true},
+    monochrome: {url: 'data/lut/monochrome-s8.png'},
+    sepia: {url: 'data/lut/sepia-s8.png'},
+    saturated: {url: 'data/lut/saturated-s8.png'}
+};
 
 var params = {
     collection: {name: undefined, url: undefined, overview: false},
@@ -157,6 +166,50 @@ function initMarkerMaterialUniforms(vs, fs) {
     };
 
     return uniforms;
+}
+
+/* Lut ----------------------------------------------- */
+function makeIdentityLutTexture(filter) {
+    const identityLUT = new Uint8Array([
+        0,   0,   0, 255,  // black
+        255,   0,   0, 255,  // red
+        0,   0, 255, 255,  // blue
+        255,   0, 255, 255,  // magenta
+        0, 255,   0, 255,  // green
+        255, 255,   0, 255,  // yellow
+        0, 255, 255, 255,  // cyan
+        255, 255, 255, 255,  // white
+    ]);
+
+    const texture = new THREE.DataTexture(identityLUT, 4, 2, THREE.RGBAFormat);
+    texture.minFilter = filter;
+    texture.magFilter = filter;
+    texture.needsUpdate = true;
+    texture.flipY = false;
+    return texture;
+}
+
+function makeLUTTexture(filter, size, url) {
+    const texture = makeIdentityLutTexture(filter ? THREE.LinearFilter : THREE.NearestFilter);
+
+    if(url) {
+        const ctx = document.createElement('canvas').getContext('2d');
+
+        imageLoader.load(url, function(image) {
+            const width = size * size;
+            const height = size;
+            ctx.canvas.width = width;
+            ctx.canvas.height = height;
+            ctx.drawImage(image, 0, 0);
+            const imageData = ctx.getImageData(0, 0, width, height);
+    
+            texture.image.data = new Uint8Array(imageData.data.buffer);
+            texture.image.width = width;
+            texture.image.height = height;
+            texture.needsUpdate = true;
+        });
+    }   
+    return texture;
 }
 
 /* Environment --------------------------------------- */

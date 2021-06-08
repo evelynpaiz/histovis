@@ -1,12 +1,11 @@
 /* ---------------------- Variables ---------------------- */
 var view;
-var globeLayer;
 var environmentGlobe;
 var buildings = [];
 
 var globeRendering = true;
 
-params.scene = {style: 1};
+params.scene = {source: 1, style: 0, color: 0xeeeeee, building: 0xeeeeee};
 
 const cameraTarget = new THREE.Object3D();
 cameraTarget.matrixWorldInverse = new THREE.Matrix4();
@@ -36,8 +35,6 @@ function initGlobe(container, camera) {
     // Add elevation layers
     itowns.Fetcher.json('layers/WORLD_DTM.json').then(addElevationLayerFromConfig);
     itowns.Fetcher.json('layers/IGN_MNT_HIGHRES.json').then(addElevationLayerFromConfig);
-
-    globeLayer = view.getLayers(l => l.isGlobeLayer)[0];
 
     function addColorLayerFromConfig(config) {
         config.source = new itowns.WMTSSource(config.source);
@@ -124,7 +121,7 @@ function initBuildings(material) {
         //} else if (properties.id.indexOf('bati_industriel') === 0) {
         //    return color.set(0xff5555);
         //}
-        return color.set(0xeeeeee);
+        return new itowns.THREE.Color(params.scene.building);
         //return color.set(0xe91e63);
     }
 

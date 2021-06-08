@@ -190,6 +190,26 @@
                 // Viewpoint marker
                 marker = new THREE.Group();
 
+                // Lut
+                Object.values(lutTextures).forEach((info) => {
+                    // If not size has been set, get it from the filename in the url
+                    if (!info.size) {
+                        // Assumes filename ends in '-s<num>[n]'
+                        // where <num> is the size of the 3DLUT cube
+                        // and [n] means 'no filtering' or 'nearest'
+                        //
+                        // Examples:
+                        //    'foo-s16.png' = size:16, filter: true
+                        //    'bar-s8n.png' = size:8, filter: false
+                        const m = /-s(\d+)(n*)\.[^.]+$/.exec(info.url);
+                        if (m) {
+                            info.size = parseInt(m[1]);
+                            info.filter = info.filter === undefined ? m[2] !== 'n' : info.filter;
+                        }
+                    }
+                    info.map = makeLUTTexture(info.filter, info.size, info.url);
+                });
+
                 // Available collections
                 collections = {
                     IGNFrejus: {
@@ -276,7 +296,8 @@
 
                     cluster = new HierarchicalCluster();
                     params.clustering = {active: false, images: 0, clusters: 0};
-                    params.timeline = {intervals: 12};
+                    //params.timeline = {intervals: 12};
+                    params.scene = {source: 1, style: 0, color: 0xeeeeee};
                 }
             }
 
@@ -363,8 +384,8 @@
                 footprintGUI.heatmap = footprintGUI.add(multipleTextureMaterial.footprint, 'heatmap');
                 footprintGUI.opacity = footprintGUI.add(multipleTextureMaterial, 'opacity', 0, 1);
 
-                var borderGUI = footprintGUI.addFolder('Border');
-                borderGUI.border = borderGUI.add(multipleTextureMaterial.footprint, 'border', {none: 0, around: 1, complete: 2});
+                var borderGUI = footprintGUI.addFolder('border');
+                borderGUI.border = borderGUI.add(multipleTextureMaterial.footprint, 'border', {none: 0, around: 1, complete: 2}).name('type');
                 borderGUI.line = borderGUI.add(params.cameras, 'linewidth', 1, 10, 0.5).onChange(updateFootprintBorderFromGUI);
                 borderGUI.borderSharpness = borderGUI.add(multipleTextureMaterial.debug, 'borderSharpness', 2, 1000).name("sharpness");
 
@@ -422,21 +443,43 @@
                 clusteringGUI.clusters = clusteringGUI.add(params.clustering, 'clusters', 0, 0).onChange(updateClusterFromGUI);
 
                 // Scene
-                function updateSceneStyleFromGUI(value) {
-                    params.scene.style = value;
+                function updateSceneSourceFromGUI(value) {
+                    params.scene.source = value;
+                    updateSceneAbstractFromGUI();
+                }
+
+                function updateSceneAbstractFromGUI() {
                     var layers = view.getLayers(l => l.isColorLayer);
                     layers.forEach(l => l.visible = false);
-                    if(value < 1) {
-                        layers.forEach(l => l.abstract = true);
-                    } else {
-                        layers.forEach(l => l.abstract = false);
-                        layers[value-1].visible = true;
+                    var show = true;
+
+                    if (params.scene.source > 0) {
+                        show = false;
+                        layers[params.scene.source-1].visible = true;
                     }
+
+                    layers.forEach(l => l.abstract = {show: show, color: new THREE.Color(params.scene.color)});
+                    view.notifyChange(this);
+                }
+
+                function updateSceneStyleFromGUI(value) {
+                    params.scene.style = value;
+
+                    var lut = Object.values(lutTextures)[value];
+                    var layers = view.getLayers(l => l.isColorLayer);
+                    layers.forEach(l => l.lut = {map: lut.map, size: lut.size});
+
                     view.notifyChange(this);
                 }
 
                 var sceneGUI = gui.addFolder('Scene');
-                sceneGUI.style = sceneGUI.add(params.scene, 'style', {abstract: 0, ortho: 1, opensm: 2, dark: 3}).onChange(updateSceneStyleFromGUI);
+                sceneGUI.source = sceneGUI.add(params.scene, 'source', {abstract: 0, ortho: 1, opensm: 2, dark: 3}).onChange(updateSceneSourceFromGUI);
+                sceneGUI.style = sceneGUI.add(params.scene, 'style', {original: 0, monochrome: 1, sepia: 2, saturated: 3}).onChange(updateSceneStyleFromGUI);
+
+                // Colors
+                var colorGUI = sceneGUI.addFolder('color');
+                colorGUI.scene = colorGUI.addColor(params.scene, 'color').name('abstract').onChange(updateSceneAbstractFromGUI);
+                colorGUI.building = colorGUI.addColor(params.scene, 'building').name('buildings');
 
                 // Background 
                 function updateElevationFromGUI(value) {
@@ -444,7 +487,7 @@
                     if(globeRendering) updateEnvironmentGlobe();
                     else updateEnvironment();
                 }
-                var backgroundGUI = gui.addFolder('Background');
+                var backgroundGUI = sceneGUI.addFolder('background');
                 backgroundGUI.far = backgroundGUI.add(params.environment, 'far', 0.1, 15000, 0.1);
                 backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -200, 200)
                     .name('plane elevation').onChange(updateElevationFromGUI);
