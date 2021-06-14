@@ -284,7 +284,7 @@ function updateViewedCameras(start, end) {
     if(!names.includes(textureCamera.name)) textureCamera = new PhotogrammetricCamera();
 
     if(params.load.number == cameras.children.length) {
-        var set = collections[params.collection.name].cameras.map(name => {return images[name]});
+        var set = collections[params.collection.name].cameras.filter(name => names.includes(name)).map(name => {return images[name]});
         viewCamera.zoom = 1.;
         fitCameraToSelection(viewCamera, set);
     }

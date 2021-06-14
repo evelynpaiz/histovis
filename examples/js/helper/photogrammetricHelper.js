@@ -895,65 +895,6 @@ function interpolateCamera(timestamp) {
     }
 }
 
-// Ref: https://discourse.threejs.org/t/camera-zoom-to-fit-object/936/24
-function fitCameraToSelection(camera, set, fitOffset = 1.) {
-    if(multipleTextureMaterial) {
-        multipleTextureMaterial.footprint.heatmap = true;
-        multipleTextureMaterial.footprint.border = 1;
-    }
-    // Create bounding box based on all projected points
-    const box = new THREE.Box3();
-
-    Object.values(set).forEach(item => {
-        var camera = getCamera(item.camera, 0, false).clone();
-
-        camera.far = params.environment.far;
-        camera.updateProjectionMatrix();
-
-        var proj = camera.projectionMatrix.clone();
-        var world = camera.matrixWorld.clone();
-        var inverseWorld = new THREE.Matrix4().getInverse(world);
-
-        var frustum = new THREE.Frustum();
-        frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(proj, inverseWorld));
-
-        Object.values(item.projectedPoints).forEach(p => {
-            
-            if(frustum.containsPoint(p)) box.expandByPoint(p);
-
-
-            // visible points to check the correct position
-            //const geometry = new THREE.SphereBufferGeometry(10, 32, 32);
-            //const material = new THREE.MeshBasicMaterial( {color: 0xff0000} );
-            //const sphere = new THREE.Mesh( geometry, material );
-            //sphere.position.copy(p);
-            //sphere.updateMatrixWorld();
-            //sphere.updateWorldMatrix();
-            //view.scene.add(sphere);
-        });
-    });
-
-    //view.scene.add(boxHelper(box));
-
-    // Center and size of the bounding box
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-
-    const maxSize = Math.max(size.x, size.y, size.z);
-    const fitHeightDistance = maxSize / (2 * Math.atan(Math.PI * camera.fov / 360));
-    const fitWidthDistance = fitHeightDistance / camera.aspect;
-    const distance = fitOffset * Math.max(fitHeightDistance, fitWidthDistance);
-
-    const direction = center.clone().sub(camera.position).normalize().multiplyScalar(distance);
-
-    var updateCamera = camera.clone();
-    updateCamera.position.copy(center).sub(direction);
-    updateCamera.lookAt(center);
-    updateCamera.updateProjectionMatrix();
-
-    setView(updateCamera);
-}
-
 function boxHelper(box) {
     // Min and max size of the box
     const min = box.min;

@@ -32,6 +32,7 @@ function initGlobe(container, camera) {
     itowns.Fetcher.json('layers/Ortho.json').then(addColorLayerFromConfig);
     itowns.Fetcher.json('layers/OPENSM.json').then(addColorLayerFromConfig);
     itowns.Fetcher.json('layers/DARK.json').then(addColorLayerFromConfig);
+    itowns.Fetcher.json('layers/Cada.json').then(addColorLayerFromConfig);
     // Add elevation layers
     itowns.Fetcher.json('layers/WORLD_DTM.json').then(addElevationLayerFromConfig);
     itowns.Fetcher.json('layers/IGN_MNT_HIGHRES.json').then(addElevationLayerFromConfig);
@@ -269,6 +270,65 @@ function updateTargetGlobe(camera) {
         object.rotateX(Math.PI * 0.5);
         object.updateMatrixWorld(true);
     }
+}
+
+// Ref: https://discourse.threejs.org/t/camera-zoom-to-fit-object/936/24
+function fitCameraToSelection(camera, set, fitOffset = 1.) {
+    if(multipleTextureMaterial) {
+        multipleTextureMaterial.footprint.heatmap = true;
+        multipleTextureMaterial.footprint.border = 1;
+    }
+    // Create bounding box based on all projected points
+    const box = new THREE.Box3();
+    
+    Object.values(set).forEach(item => {
+        var camera = getCamera(item.camera, 0, false).clone();
+
+        camera.far = params.environment.far;
+        camera.updateProjectionMatrix();
+
+        var proj = camera.projectionMatrix.clone();
+        var world = camera.matrixWorld.clone();
+        var inverseWorld = new THREE.Matrix4().getInverse(world);
+
+        var frustum = new THREE.Frustum();
+        frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(proj, inverseWorld));
+
+        Object.values(item.projectedPoints).forEach(p => {
+            
+            if(frustum.containsPoint(p)) 
+                box.expandByPoint(new itowns.Coordinates(view.referenceCrs).setFromVector3(p).as('EPSG:2154').toVector3());
+        });
+    });
+
+    console.log(box);
+    //view.scene.add(boxHelper(box));
+
+    //  Clone the camera and get the current position of the camera and convert it to lambert 93
+    var updateCamera = camera.clone();
+    const posCamera = new itowns.Coordinates(view.referenceCrs).setFromVector3(camera.position).as('EPSG:2154').toVector3();
+
+    // Center and size of the bounding box
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    const maxSize = Math.max(size.x, size.y);
+    const fitHeightDistance = maxSize / (2 * Math.atan(Math.PI * updateCamera.fov / 360));
+    const fitWidthDistance = fitHeightDistance / updateCamera.aspect;
+    const distance = fitOffset * Math.max(fitHeightDistance, fitWidthDistance);
+    //const direction = center.clone().sub(posCamera).normalize().multiplyScalar(distance);
+
+    // Update the new position of the camera
+    posCamera.set(center.x, center.y, distance);
+    //posCamera.copy(center).sub(direction);
+    
+
+    // Update the camera with the new values
+    updateCamera.position.copy(new itowns.Coordinates('EPSG:2154').setFromVector3(posCamera).as(view.referenceCrs).toVector3());
+    updateCamera.lookAt(new itowns.Coordinates('EPSG:2154').setFromVector3(center).as(view.referenceCrs).toVector3());
+    updateCamera.updateProjectionMatrix();
+
+    setView(updateCamera);
 }
 
 /* Movement ------------------------------------------ */

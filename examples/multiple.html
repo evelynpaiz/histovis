@@ -472,6 +472,12 @@
                     view.notifyChange(this);
                 }
 
+                function updateSceneBuildingFromGUI(value) {
+                    params.scene.building = value;
+                    var layer = view.getLayerById('building');
+                    view.notifyChange(layer);
+                }
+
                 var sceneGUI = gui.addFolder('Scene');
                 sceneGUI.source = sceneGUI.add(params.scene, 'source', {abstract: 0, ortho: 1, opensm: 2, dark: 3}).onChange(updateSceneSourceFromGUI);
                 sceneGUI.style = sceneGUI.add(params.scene, 'style', {original: 0, monochrome: 1, sepia: 2, saturated: 3}).onChange(updateSceneStyleFromGUI);
@@ -479,7 +485,7 @@
                 // Colors
                 var colorGUI = sceneGUI.addFolder('color');
                 colorGUI.scene = colorGUI.addColor(params.scene, 'color').name('abstract').onChange(updateSceneAbstractFromGUI);
-                colorGUI.building = colorGUI.addColor(params.scene, 'building').name('buildings');
+                colorGUI.building = colorGUI.addColor(params.scene, 'building').name('buildings').onChange(updateSceneBuildingFromGUI);
 
                 // Background 
                 function updateElevationFromGUI(value) {
