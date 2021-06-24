@@ -262,7 +262,24 @@
                             var name = 'IGNNanterreBuilding';
                             unloadJSONGlobe(name);
                         }
-                    }
+                    },
+                    NiepceCharlesGros: {
+                        selection: false,
+                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        cameras: [],
+                        load: function() {
+                            params.collection.name = 'NiepceCharlesGros';
+                            spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
+                            markerMaterialUniforms.color = collections[params.collection.name].color;
+                            params.collection.url = 'collections/niepce/';
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'niepce-full.json', params.collection.name);
+                            params.interpolation.fitCamera = true;
+                        },
+                        unload: function() {
+                            var name = 'NiepceCharlesGros';
+                            unloadJSONGlobe(name);
+                        }
+                    },
                 };
 
                 // Event listeners

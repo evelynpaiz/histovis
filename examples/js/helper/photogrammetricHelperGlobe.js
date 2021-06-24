@@ -184,7 +184,7 @@ function loadJSONGlobe(material, path, file, c) {
         }
 
         if(json.groupimg) {
-            params.load.number += json.groupimg.length;
+            params.load.number += Object.keys(json.groupimg).length;
             Object.keys(json.groupimg).forEach((image) => {
                 if(c && collections[c].cameras) {
                     collections[c].cameras.push(image);
@@ -226,6 +226,7 @@ function unloadJSONGlobe(c) {
         });
         collections[c].cameras = [];
     }
+    multipleTextureMaterial.updateTextureData();
 }
 
 /* Update -------------------------------------------- */
@@ -300,8 +301,7 @@ function fitCameraToSelection(camera, set, fitOffset = 1.) {
                 box.expandByPoint(new itowns.Coordinates(view.referenceCrs).setFromVector3(p).as('EPSG:2154').toVector3());
         });
     });
-
-    console.log(box);
+    
     //view.scene.add(boxHelper(box));
 
     //  Clone the camera and get the current position of the camera and convert it to lambert 93
