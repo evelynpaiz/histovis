@@ -425,7 +425,7 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
     function onImageMouseClick() {
         if(params.collection.overview) {
             var cams = [];
-            collections[params.collection.name].cameras.forEach(name => {
+            names.forEach(name => {
                 const array = cameras.children;
                 const index = array.findIndex(cam => cam.name == name);
                 if(index > -1) {
@@ -449,7 +449,7 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
     function onImageMouseDblClick() {
         if(params.collection.overview) {
             var cams = [];
-            collections[params.collection.name].cameras.forEach(name => {
+            names.forEach(name => {
                 const array = cameras.children;
                 const index = array.findIndex(cam => cam.name == name);
                 if(index > -1) {

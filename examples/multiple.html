@@ -272,7 +272,7 @@
                             spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
                             params.collection.url = 'collections/niepce/';
-                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'niepce-full.json', params.collection.name);
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'niepce-smaller.json', params.collection.name);
                             params.interpolation.fitCamera = true;
                         },
                         unload: function() {
@@ -558,7 +558,7 @@
                 if(params.load.number != cameras.children.length) loadingScreen.style.display = 'block';
                 else {
                     loadingScreen.style.display = 'none';
-                    if(textureCamera.name == "" && names.length > 0) setCamera(getCameraByName(names[0]));
+                    //if(textureCamera.name == "" && names.length > 0) setCamera(getCameraByName(names[0]));
                     updateCluster(viewCamera);
                     //updateTimeline();
                     gui.updateGUI();

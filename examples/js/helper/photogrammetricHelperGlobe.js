@@ -198,6 +198,7 @@ function loadJSONGlobe(material, path, file, c) {
 }
 
 function unloadJSONGlobe(c) {
+    //params.collection.name = undefined;
     if(collections[c] && collections[c].cameras) {
         params.load.number -= collections[c].cameras.length;
 
@@ -226,7 +227,6 @@ function unloadJSONGlobe(c) {
         });
         collections[c].cameras = [];
     }
-    multipleTextureMaterial.updateTextureData();
 }
 
 /* Update -------------------------------------------- */

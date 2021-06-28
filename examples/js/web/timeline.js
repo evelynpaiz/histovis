@@ -166,15 +166,13 @@ function updateTimeline(updateSelection = true) {
             tData.year = generateData(yearArray);
 
             // Update the timeline
-            //if(!tSelection) {
                 var datesCollection = Object.entries(dates).filter(([key, value]) => collections[params.collection.name].cameras.includes(key)).map(([key, value]) => value);
                 var minCollection =  new Date(Math.min.apply(null, Object.values(datesCollection).map(d => {return d.start})));
                 var maxCollection = new Date(Math.max.apply(null, Object.values(datesCollection).map(d => {return d.end})));
 
                 //var d = dates[textureCamera.name];
-                if(minCollection && maxCollection) tSelection = filteredDomain(zoomScale, getTimeScale(), [zoomScale(minCollection), zoomScale(maxCollection)]);
+                if(datesCollection.length > 0 && minCollection && maxCollection) tSelection = filteredDomain(zoomScale, getTimeScale(), [zoomScale(minCollection), zoomScale(maxCollection)]);
                 else tSelection = d3.extent(getDataset(), d => d.date);
-            //}
             updateTimelineData();
         //}
     }
@@ -284,7 +282,8 @@ function updateViewedCameras(start, end) {
     if(!names.includes(textureCamera.name)) textureCamera = new PhotogrammetricCamera();
 
     if(params.load.number == cameras.children.length) {
-        var set = collections[params.collection.name].cameras.filter(name => names.includes(name)).map(name => {return images[name]});
+        var set = names.map(name => {return images[name]});
+        //var set = collections[params.collection.name].cameras.filter(name => names.includes(name)).map(name => {return images[name]});
         viewCamera.zoom = 1.;
         fitCameraToSelection(viewCamera, set);
     }
