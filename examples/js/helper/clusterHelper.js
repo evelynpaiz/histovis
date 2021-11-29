@@ -361,6 +361,21 @@ function handleMultipleCluster(image, position) {
     return container;
 }
 
+function handleSimpleImage(name) {
+    var img = document.createElement('img');
+    //var color = new THREE.Color(0xf27793);
+    var color = new THREE.Color(0x000000);
+    //img.src = 'data/img/' + name;
+    img.src = name;
+    img.setAttribute('id', 'test');
+    //img.setAttribute('title', 'image: ' + name);
+
+    img.setAttribute('class', 'w3-image w3-border w3-round');
+    img.setAttribute('style', `cursor:pointer; display:block; border-color:#${color.getHexString()}!important; width:100%`);
+
+    return img;
+}
+
 function handleGalleryImage(image, event = true, bigImage = undefined) {
     var img = document.createElement('img');
     var color =  markerMaterials[image.camera.name].color;

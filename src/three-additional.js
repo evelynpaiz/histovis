@@ -1,3 +1,6 @@
+import { OrbitControls, MapControls } from 'three/examples/jsm/controls/OrbitControls';
+import { FirstPersonControls } from 'three/examples/jsm/controls/FirstPersonControls';
+
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader';
 
 import { CopyShader } from 'three/examples/js/shaders/CopyShader';
@@ -12,6 +15,7 @@ import { Line2 } from 'three/examples/jsm/lines/Line2';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry';
 import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2';
 
+export { OrbitControls, MapControls, FirstPersonControls };
 export { PLYLoader };
 export { CopyShader, EffectComposer, RenderPass, ShaderPass };
 export { LineMaterial, LineGeometry, Line2, LineSegmentsGeometry, LineSegments2 };

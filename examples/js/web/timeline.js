@@ -161,9 +161,15 @@ function updateTimeline(updateSelection = true) {
             var monthArray = d3.scaleTime().domain([min, max]).ticks(d3.timeMonth, 1);
             var yearArray = d3.scaleTime().domain([min, max]).ticks(d3.timeYear, 1);
 
-            tData.day = generateData(dayArray);
-            tData.month = generateData(monthArray);
-            tData.year = generateData(yearArray);
+            //if(updateSelection) {
+            //    tData.day = generateDataProbability(dayArray);
+            //    tData.month = generateDataProbability(monthArray);
+            //    tData.year = generateDataProbability(yearArray);
+            //} else {
+                tData.day = generateData(dayArray);
+                tData.month = generateData(monthArray);
+                tData.year = generateData(yearArray);
+            //}
 
             // Update the timeline
                 var datesCollection = Object.entries(dates).filter(([key, value]) => collections[params.collection.name].cameras.includes(key)).map(([key, value]) => value);

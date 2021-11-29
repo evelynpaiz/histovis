@@ -40,7 +40,7 @@ var params = {
     interpolation: {duration: 3., fitCamera: false},
     load: {number: 0, done: false},
     mouse: {control: 1, timer: 0, delay: 200, prevent: false},
-    markers: {scale: 4, linewidth: 3, near: true, far: true, target: false}
+    markers: {scale: 4, linewidth: 3, near: true, far: true, target: false, image: false}
 };
 
 var dates = {}, names = [], markers = [];
@@ -303,6 +303,27 @@ function cameraHelper(camera) {
         group.add(geometry);
     }
 
+    // place the image plane with an image
+    //{
+    //    viewMaterials[camera.name] = new OrientedImageMaterial(viewMaterialUniforms);
+    //    setMaterial(viewMaterials[camera.name], camera);
+    //    viewMaterials[camera.name].debug.showImage = true;
+
+    //    var vertices = v.slice(6, 18);
+    //    var uvs = new Float32Array([ 0., 0.,  0., 1.,  1., 1.,  1., 0.]);
+    //    var visibility = new Float32Array(Array(12).fill(0.));
+    //    var indices = [0, 2, 1,  0, 3, 2];
+
+    //   var geometry = new THREE.BufferGeometry();
+    //    geometry.setIndex(indices);
+    //    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    //    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    //    geometry.setAttribute('visibility', new THREE.BufferAttribute(visibility, 1));
+    //    var mesh = new THREE.Mesh(geometry, viewMaterials[camera.name]);
+    //    mesh.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
+    //    group.add(mesh);
+    //}
+
     group.scale.set(params.markers.scale, params.markers.scale, params.markers.scale);
     return group;
 
@@ -335,6 +356,7 @@ function cameraHelper(camera) {
 
 function scaleCameraHelper() {
     if(marker && markerMaterials[marker.name] && marker.scale.x < 2 + params.markers.scale){
+    //if(marker && markerMaterials[marker.name] && marker.scale.x < params.markers.scale){
         marker.scale.addScalar(0.5);
         spriteMaterials[marker.name].size += 2;
         markerMaterials[marker.name].linewidth += 1;
@@ -582,7 +604,10 @@ function loadJSON(material, path, file) {
     source.open(file, 'text').then((json) => {
         json = JSON.parse(json);
 
-        if(json.target) params.environment.center.copy(json.target);
+        if(json.target) {
+            params.environment.center.copy(json.target);
+            if(controls) controls.target.copy(json.target);
+        } 
 
         if(json.camera) {
             if(json.camera.scale) params.cameras.size = json.camera.scale;
@@ -783,8 +808,8 @@ function getRandomDate(year) {
     var end = new Date(year + threshold, 0, 1);
 
     // Generate the two dates 
-    d.push(getRandomDate(start, end));
-    d.push(getRandomDate(start, end));
+    d.push(getRandomDatee(start, end));
+    d.push(getRandomDatee(start, end));
     return {
         year: year,
         start: new Date(Math.min.apply(null, d)),
@@ -792,7 +817,7 @@ function getRandomDate(year) {
     };
 }
 
-function getRandomDate(start, end) {
+function getRandomDatee(start, end) {
     return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 }
 
@@ -930,7 +955,7 @@ function basicClean() {
         interpolation: {duration: 3., fitCamera: false},
         load: {number: 0, done: false},
         mouse: {control: 1, timer: 0, delay: 200, prevent: false},
-        markers: {scale: 4, linewidth: 3, near: true, far: true, target: false}
+        markers: {scale: 4, linewidth: 3, near: true, far: true, target: false, image: false}
     };
 
     const camera = new PhotogrammetricCamera();

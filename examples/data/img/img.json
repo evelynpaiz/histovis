@@ -1,0 +1,34 @@
+{
+"img": 
+	["1948_DUR_66_0005.jpg",
+     "1947_DUR_27_0002.jpg",
+     "FRAN_0241_03041_L.jpg",
+     "FRAN_0241_05880_L.jpg",
+     "FRAN_0241_02452_L.jpg",
+     "FRAN_0241_04923_L.jpg",
+     "FRAN_0241_04580_L.jpg",
+     "1946_DUR_13_0007.jpg",
+     "FRAN_0241_05040_L.jpg",
+     "FRAN_0241_03064_L.jpg",
+     "FRAN_0279_09645_L.jpg",
+     "FRAN_0241_03586_L.jpg",
+     "FRAN_0241_02506_L.jpg",
+     "FRAN_0241_04312_L.jpg",
+     "FRAN_0241_08898_L.jpg",
+     "FRAN_0241_02823_L.jpg",
+     "FRAN_0241_04761_L.jpg",
+     "FRAN_0241_09180_L.jpg",
+     "FRAN_0241_03551_L.jpg",
+     "FRAN_0241_04886_L.jpg",
+     "FRAN_0241_03168_L.jpg",
+     "FRAN_0241_04903_L.jpg",
+     "FRAN_0241_03328_L.jpg",
+     "FRAN_0241_05763_L.jpg",
+     "FRAN_0241_03981_L.jpg"
+    ]
+}
+
+list.forEach(image => {
+    var img = handleSimpleImage(image);
+element.appendChild(img); 
+});

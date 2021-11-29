@@ -91,10 +91,27 @@ body, h1,h2,h3,h4,h5,h6 {font-family: "Montserrat", sans-serif}
     z-index: 1;
     height:calc(100% - 100px);
     width:calc(100% - 220px);
+    /*width:calc(100% - 380px);*/
     left:210px;
+    /*left:370px;*/
     position:fixed;
     top:10px;
     /*transition: all 0.4s ease 0s;*/
+}
+
+#mySlider {
+    position:fixed;
+    top:10px;
+    height:calc(100% - 100px);
+    width:150px;
+    left:210px;
+    visibility:hidden;
+}
+
+#colSlider {
+    display: inline-block;
+    overflow-y: scroll;
+    height: 100%;
 }
 
 #viewerDiv {

@@ -2,60 +2,336 @@
 <html>
     <head>
         <meta charset="utf-8">
-        <title>HistoVis - Distorted View</title>
+        <title>HistoVis - Distortion</title>
         <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-        <link rel="stylesheet" href="style/w3.css">
-        <link rel="stylesheet" href="style/style.css">
-        <link rel="stylesheet" href="style/menu.css">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
         <link rel="shortcut icon" href="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.ico">
+        <style>
+            html { height: 100%; }
+            body { margin: 0; overflow: hidden; height: 100%; }
+            #viewerDiv { margin: auto; height: 100%; width: 100%; padding: 0; }
+            canvas { display: block }
+        </style>
     </head>
-    <body class="w3-light-gray">
-        <!-- Sidebar/menu -->
-        <nav id="mySidebar" class="w3-sidebar w3-light-gray w3-card-2 w3-animate-left">
-            <div class="w3-bar w3-dark-grey">
-                <span class="w3-bar-item w3-padding-16">
-                    Content
-                </span>
-                <button onclick="closeMenu()" class="w3-bar-item w3-button w3-right w3-padding-16" title="close sidebar">×</button>
-            </div>
+    <body>
+        <!-- Rendering -->
+        <script src="../dist/itowns.js"></script>
+        <script>
+            // Itowns library
+            var itowns = histovis.itowns;
+        </script>
+        
+        <script src="../dist/three.js"></script>
+        <script>
+            // Three library
+            var THREE = histovis.THREE;
+            // Data GUI
+            var GUI = histovis.GUI;
+        </script>
 
-            <div class="w3-bar-block w3-light-gray">
-                <a class="w3-bar-item w3-button w3-hover-pink" href="index.html">Home</a>
-                <div>
-                    <button class="w3-button w3-block w3-left-align w3-hover-green w3-green" onclick="myCollectionsFunc()">
-                        Image Collections <i class="fa fa-caret-down"></i>
-                    </button>
-                    <div id="myCollections" class="w3-small w3-hide w3-show"></div>
-                </div>
+        <script src="../dist/three-additional.js"></script>
+        <script>
+            // Three additional
+            var MapControls = histovis.MapControls;
+            var PLYLoader = histovis.PLYLoader;
+        </script>
 
-                <div id="myMenu" class="w3-dropdown-hover">
-                    <a class="w3-button w3-hover-green" href="javascript:void(0)">Menu Visualization <i class="fa fa-caret-down"></i></a>
-                    <div class="w3-dropdown-content w3-bar-block w3-small w3-card w3-light-gray">
-                        <a href="javascript:closeImageVis();" class="w3-bar-item w3-button">None</a>
-                        <a href="javascript:openSlider();" class="w3-bar-item w3-button">Slider</a>
-                    </div>
-                </div>
-            </div>
-        </nav>
+        <script src="../dist/photogrammetric-camera.js"></script>
+        <script>
+            // Files Management
+            var FetchSource = histovis.photogrammetricCamera.FetchSource;
+            var FilesSource = histovis.photogrammetricCamera.FilesSource;
+            // Parsers
+            var MatisOrientationParser = histovis.photogrammetricCamera.MatisOrientationParser;
+            var MicmacOrientationParser = histovis.photogrammetricCamera.MicmacOrientationParser;
+            var GoogleOrientationParser = histovis.GoogleOrientationParser;
+            // Materials
+            var OrientedImageMaterial = histovis.photogrammetricCamera.OrientedImageMaterial;
+            var imageVS = histovis.photogrammetricCamera.imageVS;
+            var imageFS = histovis.photogrammetricCamera.imageFS;
+            var viewFS = histovis.photogrammetricCamera.viewFS;
+            var distortVS = histovis.photogrammetricCamera.distortVS;
+            var distortFS = histovis.photogrammetricCamera.distortFS;
+            var sceneVS = histovis.photogrammetricCamera.sceneVS;
+            var sceneFS = histovis.photogrammetricCamera.sceneFS;
+            // Photogrammetric camera
+            var PhotogrammetricCamera = histovis.photogrammetricCamera.PhotogrammetricCamera;
+        </script>
 
-        <!-- Open Menu -->
-        <span id="openNav" title="open Sidebar" class="w3-button w3-transparent w3-display-topleft w3-large w3-hover-pink" onclick="openMenu()">☰</span>
+        <script src="../dist/cluster.js"></script>
+        <script>
+            var HistoricalImage = histovis.HistoricalImage;
+        </script>
 
-        <!-- !Page Content -->
-        <iframe id="myRenderer" class = "w3-card w3-light-gray w3-margin-bottom" src="distortion-renderer.html">
-        </iframe>
+        <script src="js/helper/photogrammetricHelperBasic.js"></script>
+        <script src="js/helper/photogrammetricHelperBasicGlobe.js"></script>
+        <script>
+            /* ---------------------- Variables ---------------------- */
+            var tScene, tPlane, tCamera;
+            var sceneMaterialUniforms, sceneMaterial;
 
-        <!-- Image slider -->
-        <div id="mySlider" class="w3-container w3-padding w3-light-gray w3-card w3-animate-bottom">  
-            <div id="rowSlider" class="w3-row-padding" style="display:flex;overflow-x:auto;">
-            </div>
-        </div>
+            var globeRendering = false;
 
-        <!-- Cluster image menu -->
-        <div id="myCluster" class="w3-container w3-padding w3-light-gray w3-card">
-        </div>
+            /* ------------------------- Main ------------------------ */
+            init();
+            var gui = initGUI();
+            animate();
 
-        <script src="js/web/menu.js"></script>
+            /* ----------------------- Functions --------------------- */
+            function init() {
+                // HTML container for the rendering scene
+                var container = document.createElement('div');
+                    container.setAttribute('id', 'viewerDiv');
+                    document.body.appendChild(container);
+
+                // Sizes
+                width = window.innerWidth;
+                height = window.innerHeight;
+
+                // Globe
+                initGlobe(container, viewCamera);
+
+                // Renderer
+                renderer = view.mainLoop.gfxEngine.renderer;
+
+                // Scene
+                scene = new THREE.Scene();
+                //scene.background = new THREE.Color(0xf0f0f0);
+                scene.background = new THREE.Color(0xffffff);
+
+                // Cameras 
+                cameras = new THREE.Group();
+                cameras.visible = false;
+                scene.add(viewCamera);
+
+                // Materials
+                basicMaterial = initBasicMaterial();
+                wireMaterial = initWireMaterial();
+                [textureMaterialUniforms, textureMaterial] = initTextureMaterial(distortVS, distortFS, uvTexture);
+                viewMaterialUniforms = initCameraMaterialUniforms(imageVS, viewFS, uvTexture);
+                sceneMaterialUniforms = initSceneMaterialUniforms(sceneVS, sceneFS, textureMaterial);
+                sceneMaterial = new THREE.ShaderMaterial(sceneMaterialUniforms);
+
+                // Environment
+                environment = new THREE.Group();
+                backgroundSphere = initBackgroundSphere(textureMaterial);
+                worldPlane = initWorldPlane(textureMaterial);
+
+                environment.add(backgroundSphere);
+                environment.add(worldPlane);
+                environment.visible = false;
+
+                initBuildings(textureMaterial);
+
+                // Render to texture
+                tScene = new THREE.Scene();
+                tPlane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2), null);
+                tCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10);
+
+                tPlane.frustumCulled = false;
+                tPlane.material = sceneMaterial;
+                tScene.add(tPlane);
+
+                // Event listeners
+                document.addEventListener('keydown', onDocumentKeyDown, false);
+
+                // Available collections
+                collections = {
+                    Sample: function(){
+                        clean();
+                        setBasicControls();
+                        scene.add(environment);
+                        scene.add(cameras);
+                        worldPlane.visible = false;
+                        globeRendering = false;
+                        var path = 'https://raw.githubusercontent.com/micmacIGN/Documentation/master/FilesSamples/';
+                        var source = new FetchSource(path);
+                        loadOrientation('Orientation-00.xml', source);
+                        loadOrientation('Orientation-1.xml', source);
+                        updateEnvironment();
+                    },
+                    Maurepas: function() {
+                        clean();
+                        setBasicControls();
+                        scene.add(environment);
+                        scene.add(cameras);
+                        globeRendering = false;
+                        collection = 'collections/maurepas/';
+                        loadJSON(textureMaterial, server + collection);
+                        updateEnvironment();
+                    },
+                    Frejus: function() {
+                        clean();
+                        setBasicControls();
+                        scene.add(environment);
+                        scene.add(cameras);
+                        backgroundSphere.visible = false;
+                        globeRendering = false;
+                        collection = 'collections/frejus/';
+                        loadJSON(textureMaterial, server + collection);
+                        updateEnvironment();
+                    },
+                    Viabon: function() {
+                        clean();
+                        setBasicControls();
+                        scene.add(environment);
+                        scene.add(cameras);
+                        backgroundSphere.visible = false;
+                        globeRendering = false;
+                        collection = 'collections/viabon/';
+                        loadJSON(textureMaterial, server + collection);
+                    },
+                    ViabonGeo: function() {
+                        clean();
+                        setGlobeControls();
+                        view.scene.add(environment);
+                        view.scene.add(cameras);
+                        globeRendering = true;
+                        backgroundSphere.visible = false;
+                        textureMaterial.distortion.method = 2;
+                        collection = 'collections/viabon/';
+                        loadJSONGlobe(textureMaterial, server + collection);
+                    },
+                    SaintMartin: function() {
+                        clean();
+                        setBasicControls();
+                        scene.add(environment);
+                        scene.add(cameras);
+                        globeRendering = false;
+                        collection = 'collections/saint_martin/';
+                        loadJSON(textureMaterial, server + collection);
+                        updateEnvironment();
+                    }
+                };
+
+                /* Rendering ----------------------------------------- */
+                view.render = function render() {
+                    var g = view.mainLoop.gfxEngine;
+                    var r = g.renderer;
+
+                    if(textureMaterial.distortion.method == 2) target = g.fullSizeRenderTarget;
+                    else target = null;
+
+                    r.setRenderTarget(target);
+                    r.clear();
+
+                    if(globeRendering) r.render(view.scene, view.camera.camera3D);
+                    else r.render(scene, viewCamera);
+
+                    if(textureMaterial.distortion.method == 2) {
+                        tPlane.material.uniforms.tDiffuse.value = g.fullSizeRenderTarget.texture;
+                        r.setRenderTarget(null);
+                        r.clear();
+                        r.render(tScene, tCamera);
+                    }
+                }
+
+                /* Clean --------------------------------------------- */
+                function clean() {
+                    basicClean();
+                }
+            }
+            
+            function initGUI() {
+                var gui = new GUI();
+
+                // Collections options
+                function menuCollections(){
+                    for(const key in collections) collectionsGUI.add(collections, key);
+                    collectionsGUI.closed = false;
+                }
+
+                var collectionsGUI = gui.addFolder('Collections');
+                menuCollections();
+
+                // View Camera
+                function updateViewCameraFromGUI() {
+                    viewCamera.updateProjectionMatrix();
+                    view.notifyChange(view.camera.camera3D, true);
+                };
+
+                var viewGUI = gui.addFolder('View Camera'); // View
+                viewGUI.visible = viewGUI.add(cameras, 'visible').name('viewpoints');
+                viewGUI.zoom = viewGUI.add(viewCamera, 'zoom', 0, 2).onChange(updateViewCameraFromGUI);
+                viewGUI.distort = viewGUI.add(textureMaterial.distortion, 'view').name('distort');
+                viewGUI.extrapol = viewGUI.add(textureMaterial.extrapolation, 'view').name('extrapolate');
+
+                // Texture Camera
+                function updateRmaxFromGUI(value) {
+                    params.distortion.rmax = value;
+                    textureMaterial.uvDistortion.R.w = value*value*textureMaterial.distortion.r2img;
+                    textureMaterial.setHomography(textureCamera);
+                    view.notifyChange(view.camera.camera3D, true);
+                };
+
+                var textureGUI = gui.addFolder('Historical Camera');
+                textureGUI.opacity = textureGUI.add(textureMaterial, 'opacity', 0, 1);
+                textureGUI.borderSharpness = textureGUI.add(textureMaterial.debug, 'borderSharpness', 2, 1000).name("sharpness");
+                textureGUI.distort = textureGUI.add(textureMaterial.distortion, 'texture').name('distort');
+                textureGUI.extrapol = textureGUI.add(textureMaterial.extrapolation, 'texture').name('extrapolate');
+                textureGUI.add(params.distortion, 'rmax', 0, 10).name('rmax ratio').onChange(updateRmaxFromGUI);
+
+                // Background 
+                function updateElevationFromGUI(value) {
+                    params.environment.elevation = value;
+                    if(globeRendering) updateEnvironmentGlobe();
+                    else updateEnvironment();
+                }
+
+                var backgroundGUI = gui.addFolder('Background');
+                backgroundGUI.size = backgroundGUI.add(textureMaterial, 'size', 0.5, 5);
+                backgroundGUI.diffuseColorGrey = backgroundGUI.add(textureMaterial.debug, 'diffuseColorGrey');
+                backgroundGUI.wireframe = backgroundGUI.add(textureMaterial, 'wireframe');
+                backgroundGUI.sphere = backgroundGUI.add(backgroundSphere, 'visible').name('sphere visible');
+                backgroundGUI.plane = backgroundGUI.add(worldPlane, 'visible').name('plane visible');
+                backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -200, 200)
+                    .name('plane elevation').onChange(updateElevationFromGUI);
+
+                // Debug
+                function radialDistortionWarn() {
+                    if(textureMaterial.distortion.type == 2 && textureMaterial.distortion.method == 2)
+                        console.warn('Double pass rendering only supports the radial part of the distortion model');
+                }
+
+                var debugGUI = gui.addFolder('Debug Distortion');
+                debugGUI.diffuseColorGrey = debugGUI.add(textureMaterial.debug, 'showRadius');
+                debugGUI.diffuseColorGrey = debugGUI.add(textureMaterial.debug, 'showGrid');
+                debugGUI.debugOpacity = debugGUI.add(textureMaterial.debug, 'debugOpacity', 0., 1.);
+                debugGUI.rendering = debugGUI.add(textureMaterial.distortion, 'method', {single: 1, double: 2})
+                    .name('rendering').onChange(radialDistortionWarn);
+                debugGUI.distortion = debugGUI.add(textureMaterial.distortion, 'type', {radial: 1, complete: 2})
+                    .name('distortion mode').onChange(radialDistortionWarn);
+
+                // Update controls functions
+                gui.updateFromCameras = function updateFromCameras(viewCamera, textureCamera, environment, method) {
+                    viewGUI.zoom.setValue(viewCamera.zoom);
+                    backgroundGUI.sphere.setValue(environment.children[0].visible);
+                    backgroundGUI.plane.setValue(environment.children[1].visible);
+                    debugGUI.rendering.setValue(method);
+                    var name = textureCamera.name;
+                    if (name.length > 0) {
+                        if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
+                        textureGUI.name = 'Hist: ' + name;
+                    }     
+                }
+                return gui;
+
+            }
+
+            function animate(timestamp) {
+                if (prevCamera.timestamp !== undefined) {
+                    view.notifyChange(view.camera.camera3D, true);
+                    if (timestamp > nextCamera.timestamp) {
+                        if(globeRendering) updateEnvironmentGlobe();
+                        else updateEnvironment();
+                    }
+                }
+                interpolateCamera(timestamp);
+                updateMaterial(textureMaterial);
+                textureMaterial.setUniforms(sceneMaterial.uniforms);
+                gui.updateFromCameras(viewCamera, textureCamera, environment, textureMaterial.distortion.method);
+                if(!globeRendering) view.notifyChange(true);
+                requestAnimationFrame(animate);
+            }
+        </script>
     </body>
 </html>

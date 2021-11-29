@@ -12,7 +12,7 @@
         <link rel="stylesheet" href="style/timeline.css">
         <link rel="stylesheet" href="style/font-awesome.min.css">
     </head>
-    <body class="w3-light-gray">
+    <body class="w3-white">
         <!-- Sidebar/menu -->
         <nav id="mySidebar" class="w3-sidebar w3-blue w3-card-2">
             <div class="w3-bar w3-dark-grey">
@@ -22,9 +22,9 @@
             </div>
         </nav>
         <!-- Page Content -->
-        <div id="myContent" class="w3-display-container w3-light-gray w3-card">
+        <div id="myContent" class="w3-display-container w3-white w3-card">
             <!-- Canvas -->
-            <div id="viewerDiv" class = "w3-card w3-light-gray w3-margin-bottom"></div>
+            <div id="viewerDiv" class = "w3-card w3-white w3-margin-bottom"></div>
             <!-- Loading Screen -->
             <div id="loadingScreen" class = "w3-card w3-black w3-margin-bottom">
                 <div id="loader"></div>
@@ -34,6 +34,9 @@
             <div id="myCluster"></div>
         </div>
 
+        <div id="mySlider" class="w3-container w3-padding w3-white w3-card w3-animate-bottom">
+            <div id="colSlider" class="w3-row-padding"></div>
+        </div>
         <div id="myTimeline" class = "w3-display-container"></div>
 
         <!-- Rendering -->
@@ -212,12 +215,66 @@
 
                 // Available collections
                 collections = {
-                    IGNFrejus: {
+                    /*Viabon: {
                         selection: false,
                         color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
                         cameras: [],
                         load: function() {
-                            params.collection.name = 'IGNFrejus';
+                            params.collection.name = 'Viabon';
+                            spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
+                            markerMaterialUniforms.color = collections[params.collection.name].color;
+                            params.collection.url = 'collections/viabon/';
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-geo.json', params.collection.name);
+                            params.interpolation.fitCamera = true;
+                        },
+                        unload: function() {
+                            var name = 'Viabon';
+                            unloadJSONGlobe(name);
+                        }
+                    },*/
+                    IGNFrejus2008: {
+                        selection: false,
+                        //color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        color: new THREE.Color(0x8895cd).getHex(),
+                        cameras: [],
+                        load: function() {
+                            params.collection.name = 'IGNFrejus2008';
+                            spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
+                            markerMaterialUniforms.color = collections[params.collection.name].color;
+                            params.collection.url = 'collections/ign_frejus/';
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-2008.json', params.collection.name);
+                            params.interpolation.fitCamera = true;
+                        },
+                        unload: function() {
+                            var name = 'IGNFrejus2008';
+                            unloadJSONGlobe(name);
+                        }
+                    },
+                    IGNFrejus1989: {
+                        selection: false,
+                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        //color: new THREE.Color(0x8895cd).getHex(),
+                        cameras: [],
+                        load: function() {
+                            params.collection.name = 'IGNFrejus1989';
+                            spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
+                            markerMaterialUniforms.color = collections[params.collection.name].color;
+                            params.collection.url = 'collections/ign_frejus/';
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-1989.json', params.collection.name);
+                            params.interpolation.fitCamera = true;
+                        },
+                        unload: function() {
+                            var name = 'IGNFrejus1989';
+                            unloadJSONGlobe(name);
+                        }
+                    },
+                    IGNFrejus1966: {
+                        selection: false,
+                        //color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        color: new THREE.Color(0xb4c13f).getHex(),
+                        cameras: [],
+                        load: function() {
+                            params.collection.name = 'IGNFrejus1966';
                             spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
                             params.collection.url = 'collections/frejus/';
@@ -225,13 +282,14 @@
                             params.interpolation.fitCamera = true;
                         },
                         unload: function() {
-                            var name = 'IGNFrejus';
+                            var name = 'IGNFrejus2008';
                             unloadJSONGlobe(name);
                         }
                     },
                     IGNNanterreBridge: {
                         selection: false,
-                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        //color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        color: new THREE.Color(0xf27793).getHex(),
                         cameras: [],
                         load: function() {
                             params.collection.name = 'IGNNanterreBridge';
@@ -248,7 +306,8 @@
                     },
                     IGNNanterreBuilding: {
                         selection: false,
-                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        //color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        color: new THREE.Color(0xf27793).getHex(),
                         cameras: [],
                         load: function() {
                             params.collection.name = 'IGNNanterreBuilding';
@@ -265,14 +324,15 @@
                     },
                     NiepceCharlesGros: {
                         selection: false,
-                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        //color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
+                        color: new THREE.Color(0xb98958).getHex(),
                         cameras: [],
                         load: function() {
                             params.collection.name = 'NiepceCharlesGros';
                             spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
                             params.collection.url = 'collections/niepce/';
-                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'niepce-smaller.json', params.collection.name);
+                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'niepce-test.json', params.collection.name);
                             params.interpolation.fitCamera = true;
                         },
                         unload: function() {

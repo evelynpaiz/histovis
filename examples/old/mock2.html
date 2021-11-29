@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Photogrammetric Camera - Multiple Image Visualization</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link rel="shortcut icon" href="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.ico">
+        <style>
+            html { height: 100%; }
+            body { margin: 0; overflow: hidden; height: 100%; }
+        </style>
+    </head>
+    <body>
+        <script src="../dist/three.js"></script>
+        <script>
+            // Three library 
+            var THREE = histovis.THREE;
+            // Data GUI
+            var GUI = histovis.GUI;
+        </script>
+
+        <script src="../dist/three-additional.js"></script>
+        <script>
+            var MapControls = histovis.MapControls;
+            var PLYLoader = histovis.PLYLoader;
+
+            // Three additional
+            var PLYLoader = histovis.PLYLoader;
+            var LineMaterial = histovis.LineMaterial;
+            var LineSegmentsGeometry = histovis.LineSegmentsGeometry;
+            var LineSegments2 = histovis.LineSegments2;
+
+            var lineVS = histovis.lineVS;
+            var lineFS = histovis.lineFS;
+            var spriteVS = histovis.spriteVS;
+            var spriteFS = histovis.spriteFS;
+        </script>
+
+        <script src="../dist/photogrammetric-camera.js"></script>
+        <script>
+            // Files Management
+            var FetchSource = histovis.photogrammetricCamera.FetchSource;
+            var FilesSource = histovis.photogrammetricCamera.FilesSource;
+            // Parsers
+            var MatisOrientationParser = histovis.photogrammetricCamera.MatisOrientationParser;
+            var MicmacOrientationParser = histovis.photogrammetricCamera.MicmacOrientationParser;
+            var GoogleOrientationParser = histovis.GoogleOrientationParser;
+            // Materials
+            var OrientedImageMaterial = histovis.photogrammetricCamera.OrientedImageMaterial;
+            var MultipleOrientedImageMaterial = histovis.photogrammetricCamera.MultipleOrientedImageMaterial;
+            var imageVS = histovis.photogrammetricCamera.imageVS;
+            var imageFS = histovis.photogrammetricCamera.imageFS;
+            var multipleVS = histovis.photogrammetricCamera.multipleVS;
+            var multipleFS = histovis.photogrammetricCamera.footprintFS;
+            // Photogrammetric camera
+            var PhotogrammetricCamera = histovis.photogrammetricCamera.PhotogrammetricCamera;
+        </script>
+
+        <script src="../dist/cluster.js"></script>
+        <script>
+            // Clustering
+            var HistoricalImage = histovis.HistoricalImage;
+            var HierarchicalCluster = histovis.HierarchicalCluster;
+            var Border = histovis.Border;
+            var MinMaxGUIHelper = histovis.MinMaxGUIHelper;
+        </script>
+
+        <script src="js/helper/photogrammetricHelper.js"></script>
+        <script>
+            /* ------------------------- Main ------------------------ */
+            init();
+            var gui = initGUI();
+            animate();
+
+            /* ----------------------- Functions --------------------- */
+            function init() {
+                // HTML container for the rendering scene
+                var container = document.createElement('div');
+                document.body.appendChild(container);
+
+                // Sizes
+                width = window.innerWidth;
+                height = window.innerHeight;
+
+                // Renderer
+                renderer = new THREE.WebGLRenderer({antialias: true});
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(width, height);
+                container.appendChild(renderer.domElement);
+
+                // Scene
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xf0f0f0);
+
+                // Cameras 
+                cameras = new THREE.Group();
+                cameras.visible = false;
+                scene.add(viewCamera);
+                scene.add(cameras);
+
+                // Materials
+                basicMaterial = initBasicMaterial();
+                wireMaterial = initWireMaterial();
+                [multipleTextureMaterialUniforms, multipleTextureMaterial] = initMultipleTextureMaterial(
+                    multipleVS, multipleFS, uvTexture, renderer);
+                viewMaterialUniforms = initCameraMaterialUniforms(imageVS, imageFS, uvTexture);
+                spriteMaterialUniforms = initSpriteMaterialUniforms(spriteTexture, spriteVS, spriteFS);
+                markerMaterialUniforms = initMarkerMaterialUniforms(lineVS, lineFS);
+
+                // Environment
+                environment = new THREE.Group();
+                backgroundSphere = initBackgroundSphere(multipleTextureMaterial);
+                worldPlane = initWorldPlane(multipleTextureMaterial);
+
+                environment.add(backgroundSphere);
+                environment.add(worldPlane);
+                environment.visible = false;
+                scene.add(environment);
+
+                // Controls
+                controls = new MapControls( viewCamera, renderer.domElement );
+				controls.enableDamping = false;
+				controls.screenSpacePanning = false;
+                controls.maxPolarAngle = 0.75*Math.PI;
+                controls.enableKeys = false;
+
+                // Event listeners
+                window.addEventListener('resize', onWindowResize, false);
+                document.addEventListener('keydown', onDocumentKeyDown, false);
+
+                // Available collections
+                collections = {
+                    Sample: function(){
+                        clean();
+                        worldPlane.visible = false;
+                        var path = 'https://raw.githubusercontent.com/micmacIGN/Documentation/master/FilesSamples/';
+                        var source = new FetchSource(path);
+                        loadOrientation('Orientation-00.xml', source);
+                        loadOrientation('Orientation-1.xml', source);
+                        updateEnvironment();
+                    },
+                    Maurepas: function() {
+                        clean();
+                        collection = 'collections/maurepas/';
+                        loadJSON(multipleTextureMaterial, server + collection);
+                    },
+                    Frejus: function() {
+                        clean();
+                        backgroundSphere.visible = false;
+                        collection = 'collections/frejus/';
+                        loadJSON(multipleTextureMaterial, server + collection);
+                    },
+                    Viabon: function() {
+                        clean();
+                        backgroundSphere.visible = false;
+                        collection = 'collections/viabon/';
+                        loadJSON(multipleTextureMaterial, server + collection, 'index-full.json');
+                    },
+                    SaintMartin: function() {
+                        clean();
+                        collection = 'collections/saint_martin/';
+                        loadJSON(multipleTextureMaterial, server + collection);
+                    }
+                };
+
+                /* Clean --------------------------------------------- */
+                function clean() {
+                    basicClean();
+                }
+            }
+
+            function initGUI() {
+                var gui = new GUI();
+
+                // Collections options
+                function menuCollections(){
+                    for(const key in collections) collectionsGUI.add(collections, key);
+                    collectionsGUI.closed = false;
+                }
+
+                var collectionsGUI = gui.addFolder('Collections');
+                menuCollections();
+
+                // View Camera
+                function updateViewCameraFromGUI() {
+                    viewCamera.updateProjectionMatrix();
+                };
+
+                var viewGUI = gui.addFolder('View Camera'); // View
+                viewGUI.visible = viewGUI.add(cameras, 'visible');
+                viewGUI.zoom = viewGUI.add(viewCamera, 'zoom', 0, 2).onChange(updateViewCameraFromGUI);
+
+                // Texture Camera
+                var textureGUI = gui.addFolder('Historical Camera');
+                textureGUI.opacity = textureGUI.add(multipleTextureMaterial, 'opacity', 0, 1);
+
+                // Background 
+                var backgroundGUI = gui.addFolder('Background');
+                backgroundGUI.wireframe = backgroundGUI.add(multipleTextureMaterial, 'wireframe');
+                backgroundGUI.sphere = backgroundGUI.add(backgroundSphere, 'visible').name('sphere visible');
+                backgroundGUI.plane = backgroundGUI.add(worldPlane, 'visible').name('plane visible');
+
+                // Debug
+                var debugGUI = gui.addFolder('Debug');
+                debugGUI.borderSharpness = debugGUI.add(multipleTextureMaterial.debug, 'borderSharpness', 2, 500).name("border sharpness");
+                debugGUI.diffuseColorGrey = debugGUI.add(multipleTextureMaterial.debug, 'diffuseColorGrey');
+
+                // Update controls functions
+                gui.updateFromCameras = function updateFromCameras(viewCamera, textureCamera, cameras, environment) {
+                    viewGUI.zoom.setValue(viewCamera.zoom);
+                    backgroundGUI.sphere.setValue(environment.children[0].visible);
+                    backgroundGUI.plane.setValue(environment.children[1].visible);
+                    var name = textureCamera.name;
+                    if (name.length > 0) {
+                        if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
+                        textureGUI.name = 'Hist: ' + name;
+                    }     
+                }
+                return gui;
+            };
+
+            function render() {
+                renderer.render(scene, viewCamera);
+            }
+
+            function animate(timestamp) {
+                params.markers.scale = 1.;
+                requestAnimationFrame(animate);
+                interpolateCamera(timestamp);
+                multipleTextureMaterial.updateCamera(textureCamera, textures);
+                gui.updateFromCameras(viewCamera, textureCamera, cameras, environment);
+                render();
+            }
+        </script>
+    </body>
+</html>
