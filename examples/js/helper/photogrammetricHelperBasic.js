@@ -10,27 +10,35 @@ var textureCamera = new PhotogrammetricCamera();
 var renderer, scene, cameras, controls;
 var environment, backgroundSphere, worldPlane;
 
-var basicMaterial, wireMaterial, textureMaterial, multipleTextureMaterial, viewMaterials = {}, sceneMaterial;
-var textureMaterialUniforms, multipleTextureMaterialUniforms, viewMaterialUniforms;
+var basicMaterial, wireMaterial, textureMaterial, multipleTextureMaterial, viewMaterials = {}, markerMaterials = {}, spriteMaterials = {};
+var textureMaterialUniforms, multipleTextureMaterialUniforms, viewMaterialUniforms, markerMaterialUniforms, spriteMaterialUniforms;
 
 var textureLoader = new THREE.TextureLoader();
 const uvTexture = textureLoader.load('data/uv.jpg');
+const spriteTexture = textureLoader.load('data/sprite.png');
 
 const whiteData = new Uint8Array(3);
 whiteData.set([255, 255, 255]);
 whiteTexture = new THREE.DataTexture(whiteData, 1, 1, THREE.RGBFormat);
 whiteTexture.name = 'white';
 
-var textures = {};
+var textures = {}, images = {};
 
 var params = {
+    collection: {name: undefined, url: undefined},
     cameras: {size: 10000, zoom: 0.5},
-    environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
+    environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0, far: 15000},
     distortion: {rmax: 1},
-    interpolation: {duration: 3.}
+    interpolation: {duration: 3.},
+    load: {number: 0},
+    bookmark: {type: 0, linewidth: 3, style: 1},
+    footprint: {color: new THREE.Color(0x000000).getHex(), linewidth: 3},
+    mouse: {timer: 0, delay: 200, prevent: false}
 };
 
 var clock = new THREE.Clock();
+
+var raycaster, mouse, marker;
 
 /* ----------------------- Functions --------------------- */
 
@@ -76,6 +84,7 @@ function initMultipleTextureMaterial(vs, fs, map, renderer) {
         map: map,
         depthMap: whiteTexture,
         size: 2,
+        linewidth: params.footprint.linewidth,
         sizeAttenuation: false,
         transparent: true,
         vertexColors: THREE.VertexColors,
@@ -121,6 +130,32 @@ function initSceneMaterialUniforms(vs, fs, material) {
         fragmentShader: fs,
     };
     return uniforms;
+}
+
+function initMarkerMaterialUniforms(vs, fs) {
+    var uniforms = {
+        color: 0x2196F3,
+        linewidth: params.bookmark.linewidth, // in pixels
+        dashed: false,
+        transparent: true,
+        vertexShader: vs,
+        fragmentShader: fs
+    };
+
+    return uniforms;
+}
+
+function initSpriteMaterialUniforms(map, vs, fs) {
+    var uniforms = { 
+        map: map, 
+        color: 0x00ffff,
+        size: 30, 
+        sizeAttenuation: false, 
+        alphaTest: 0.5, 
+        transparent: true 
+    };
+
+    return {uniforms: uniforms, thickness: 30., vertexShader: vs, fragmentShader: fs};
 }
 
 /* Environment --------------------------------------- */
@@ -187,12 +222,135 @@ function cameraHelper(camera) {
         mesh.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
         group.add(mesh);
     }
-    // place a sphere at the camera center
-    //{
-        //var geometry = new THREE.SphereBufferGeometry(1, 8, 8);
-        //group.add(new THREE.Mesh( geometry, basicMaterial));
-    //}
+
     return group;
+}
+
+function cameraHelperBookmark(camera) {
+    var group = new THREE.Group();
+
+    markerMaterials[camera.name] = new LineMaterial(markerMaterialUniforms);
+    markerMaterials[camera.name].resolution.set(window.innerWidth, window.innerHeight);
+
+    m = new THREE.Matrix4().getInverse(camera.projectionMatrix);
+    var v = new Float32Array(30);
+
+    // target point
+    new THREE.Vector3(  0, 0,  1 ).applyMatrix4(m).toArray(v, 3);
+
+    // get the 4 corners on the near and far plane (neglecting distortion)
+    new THREE.Vector3( -1, -1, -1 ).applyMatrix4(m).toArray(v,  6);
+    new THREE.Vector3( -1,  1, -1 ).applyMatrix4(m).toArray(v,  9);
+    new THREE.Vector3(  1,  1, -1 ).applyMatrix4(m).toArray(v, 12);
+    new THREE.Vector3(  1, -1, -1 ).applyMatrix4(m).toArray(v, 15);
+
+    new THREE.Vector3( -1, -1,  1 ).applyMatrix4(m).toArray(v, 18); 
+    new THREE.Vector3( -1,  1,  1 ).applyMatrix4(m).toArray(v, 21); 
+    new THREE.Vector3(  1,  1,  1 ).applyMatrix4(m).toArray(v, 24); 
+    new THREE.Vector3(  1, -1,  1 ).applyMatrix4(m).toArray(v, 27); 
+
+    // place a sprite at the center point
+    {
+        var vertices = v.slice(0, 3);
+        var geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        spriteMaterials[camera.name] = new THREE.PointsMaterial(spriteMaterialUniforms.uniforms);
+
+        const sprite = new THREE.Points(geometry, spriteMaterials[camera.name]);
+        group.add(sprite);
+    }
+
+    // place a target line point
+    {
+        var vertices = v.slice(0, 6);
+        var geometry = getLineGeometry(markerMaterials[camera.name], vertices);
+        geometry.visible = false;
+        group.add(geometry);
+    }
+
+    // place a near plane frustum
+    {
+        var vertices = v;
+        var indices = [0, 2, 3,  0, 3, 4,  0, 4, 5,  0, 5, 2];
+        var geometry = getLineGeometry(markerMaterials[camera.name], vertices, indices);
+        group.add(geometry);
+    }
+
+    // place a far plane frustum    
+    {
+        var vertices = v;
+        var indices = [0, 6, 7,  0, 7, 8,  0, 8, 9,  0, 9, 6];
+        var geometry = getLineGeometry(markerMaterials[camera.name], vertices, indices);
+        geometry.visible = false;
+        group.add(geometry);
+    }
+
+    // place the image plane with an image
+    {
+        viewMaterials[camera.name] = new OrientedImageMaterial(viewMaterialUniforms);
+        setMaterial(viewMaterials[camera.name], camera);
+        viewMaterials[camera.name].debug.showImage = true;
+
+        var vertices = v.slice(6, 18);
+        var uvs = new Float32Array([ 0., 0.,  0., 1.,  1., 1.,  1., 0.]);
+        var visibility = new Float32Array(Array(12).fill(0.));
+        var indices = [0, 2, 1,  0, 3, 2];
+
+       var geometry = new THREE.BufferGeometry();
+        geometry.setIndex(indices);
+        geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        geometry.setAttribute('visibility', new THREE.BufferAttribute(visibility, 1));
+        var mesh = new THREE.Mesh(geometry, viewMaterials[camera.name]);
+        mesh.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
+        group.add(mesh);
+    }
+
+    function onBeforeCompileSprite(shader) {
+        shader.uniforms.outlineThickness = {value: spriteMaterialUniforms.thickness};
+        shader.uniforms.resolution = {value: new THREE.Vector2(width, height)};
+
+        shader.vertexShader = spriteMaterialUniforms.vertexShader;
+        shader.fragmentShader = spriteMaterialUniforms.fragmentShader;
+    }
+
+    function onBeforeRenderSprite() {
+        var v = new THREE.Vector3();
+        var v1 = new THREE.Vector3();
+
+        return function onBeforeRender( renderer, scene, camera ) {
+            var factor = 0.05; // optional
+
+            v.setFromMatrixPosition( this.matrixWorld );
+            v1.setFromMatrixPosition( camera.matrixWorld );
+
+            var f = v.sub( v1 ).length() * factor;
+            this.scale.x = this.userData.originalScale.x * f;
+            this.scale.y = this.userData.originalScale.y * f;
+        }
+    }
+
+    return group;
+}
+
+function scaleCameraHelper() {
+    if(marker && markerMaterials[marker.name] && marker.scale.x < 2){
+        marker.scale.addScalar(0.5);
+        spriteMaterials[marker.name].size += 2;
+        markerMaterials[marker.name].linewidth += 1;
+        marker.updateMatrixWorld();
+        requestAnimationFrame(scaleCameraHelper);
+    }
+}
+
+function downscaleCameraHelper() {
+    if(marker && markerMaterials[marker.name] && marker.scale.x > 1){
+        marker.scale.addScalar(-0.5);
+        spriteMaterials[marker.name].size -= 2;
+        markerMaterials[marker.name].linewidth -= 1;
+        marker.updateMatrixWorld();
+        requestAnimationFrame(downscaleCameraHelper);
+    } else marker = new THREE.Group();
 }
 
 /* Callbacks ----------------------------------------- */
@@ -221,6 +379,33 @@ function onDocumentKeyDown(event) {
     }
 }
 
+function onDocumentMouseMove(event) {
+    if (prevCamera.timestamp == undefined) {
+
+        var intersects = getIntersectedObject(event); 
+
+        if(intersects.length > 0){
+            if(marker.name != "" && marker.name != intersects[0].object.parent.name) {
+                marker.children[3].visible = false;
+                downscaleCameraHelper();
+            }else{
+                marker = intersects[0].object.parent;
+
+                if(marker.name != textureCamera.name) {
+                    marker.children[3].visible = params.bookmark.style == 2;
+                    scaleCameraHelper();
+
+                    var camera = getCameraByName(marker.name);
+                    if(camera) setTexture(camera);
+                }
+            }
+        }else if(marker.name != "") {
+            marker.children[3].visible = false;
+            downscaleCameraHelper();
+        }
+    }
+}
+
 /* Loading ------------------------------------------- */
 function loadOrientation(url, source, name) {
     if (!name){
@@ -237,6 +422,13 @@ function loadImage(url, source, name) {
         const match = url.match(/([^\/]*)\.[\w\d]/i);
         name = match ? match[1] : url;
     }
+
+    // Save the url of the image
+    if (typeof images[name] == "undefined") {
+        images[name] = new HistoricalImage();
+    } 
+    images[name].url = server + params.collection.url + url || 'data/uv.jpg';
+
     return source.open(url, 'dataURL')
     .then(parseImage(source))
     .then(handleImage(name));
@@ -258,7 +450,7 @@ function loadPlyPC(url, source, material){
     .then(handlePointCloud(url, material));
 }
 
-function loadJSON(material, path, file) {
+function loadJSON(material, envFunction, path, file) {
     file = file || 'index.json';
     var source = new FetchSource(path);
     source.open(file, 'text').then((json) => {
@@ -285,12 +477,17 @@ function loadJSON(material, path, file) {
         
         if(json.up) viewCamera.up.copy(json.up);
         if(json.pointSize) material.size = json.pointSize;
+
+        envFunction();
         
         if(json.pc) json.pc.forEach((url) => loadPlyPC(url, source, material));
         if(json.mesh) json.mesh.forEach((url) => loadPlyMesh(url, source, material));
 
-        if(json.ori && json.img) json.ori.forEach((orientationUrl, i) => 
+        if(json.ori && json.img) {
+            params.load.number += json.img.length;
+            json.ori.forEach((orientationUrl, i) => 
             loadOrientedImage(orientationUrl, json.img[i], source));
+        }
     });
 }
 
@@ -344,10 +541,15 @@ function handleCamera(camera, name){
     camera.updateProjectionMatrix();
 
     // Camera helper
-    var helper = cameraHelper(camera);
-    helper.name = "helper";
+    var helper = params.bookmark.type == 0 ? cameraHelper(camera) : cameraHelperBookmark(camera);
+    helper.name = camera.name;
     camera.add(helper);
     camera.updateMatrixWorld();
+
+    if (typeof images[name] == "undefined") {
+        images[name] = new HistoricalImage();
+    } 
+    images[name].setCamera(camera, [worldPlane, backgroundSphere]); 
 
     // Camera renderer target
     var target = getRenderTarget();
@@ -407,7 +609,13 @@ function handleMesh(name, material){
 function getCamera(camera, delta = 0){
     const array = cameras.children;
     const index = array.findIndex(cam => cam.name == camera.name);
-    return array[(index + delta + array.length) % array.length];
+    if(index > -1) return array[(index + delta + array.length) % array.length];
+}
+
+function getCameraByName(name, delta = 0, filter = true) {
+    const array = cameras.children;
+    const index = array.findIndex(cam => cam.name == name);
+    if(index > -1) return array[(index + delta + array.length) % array.length];
 }
 
 function getMaxTextureUnitsCount(renderer) {
@@ -428,6 +636,23 @@ function getRenderTarget() {
     target.depthTexture.type = THREE.UnsignedIntType;
 
     return target;
+}
+
+function getLineGeometry(material, vertices, indices) {
+    var geometry = new LineSegmentsGeometry();
+    
+    if(indices) {
+        var g = new THREE.BufferGeometry();
+        g.setIndex(indices);
+        g.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+        var edges = new THREE.EdgesGeometry(g);
+        geometry.setPositions(edges.attributes.position.array);
+    } else geometry.setPositions(vertices);
+
+    var line = new LineSegments2(geometry, material);
+    line.scale.set(params.cameras.size, params.cameras.size, params.cameras.size);
+    return line;
 }
 
 /* Sets ---------------------------------------------- */
@@ -488,18 +713,22 @@ function setBasicControls() {
 
 /* Update -------------------------------------------- */
 function updateEnvironment() {
-    backgroundSphere.scale.set(params.environment.radius, params.environment.radius, params.environment.radius);
-    backgroundSphere.position.copy(params.environment.center);
-    backgroundSphere.updateWorldMatrix();
-
-    var position = params.environment.center.clone().add(
-        viewCamera.up.clone().multiplyScalar(params.environment.elevation));
-    var normal = viewCamera.up.clone().multiplyScalar(-1.);
-    worldPlane.position.copy(position);
-    worldPlane.scale.set(params.environment.radius, params.environment.radius, 1);
-    worldPlane.lookAt(position.clone().add(normal));
-    worldPlane.updateWorldMatrix();
-
+    if(backgroundSphere) {
+        backgroundSphere.scale.set(params.environment.radius, params.environment.radius, params.environment.radius);
+        backgroundSphere.position.copy(params.environment.center);
+        backgroundSphere.updateWorldMatrix();
+    }
+    
+    if(worldPlane) {
+        var position = params.environment.center.clone().add(
+            viewCamera.up.clone().multiplyScalar(params.environment.elevation));
+        var normal = viewCamera.up.clone().multiplyScalar(-1.);
+        worldPlane.position.copy(position);
+        worldPlane.scale.set(params.environment.radius, params.environment.radius, 1);
+        worldPlane.lookAt(position.clone().add(normal));
+        worldPlane.updateWorldMatrix();
+    }
+    
     if(controls) controls.maxDistance = params.environment.radius;
     environment.visible = true;
 }
@@ -549,13 +778,53 @@ function interpolateCamera(timestamp) {
     }
 };
 
+/* Mouse --------------------------------------------- */
+function saveMouseCoords(event) {
+    // calculate mouse position in normalized device coordinates
+    // (-1 to +1) for both components
+    var rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / (rect.right - rect.left)) * 2 - 1;
+    mouse.y = - (( event.clientY - rect.top) / (rect.bottom - rect.top)) * 2 + 1;
+}
+
+function getIntersectedObject(event) {
+    // calculate mouse position
+    saveMouseCoords(event);
+
+    if(!cameras.visible) return [];
+
+    // Camera markers except the texture camera
+    var array = cameras.children.map(camera => {return camera.children[0]}); // camera helpers
+    //const index = array.findIndex(helper => helper.name == textureCamera.name);
+    //if(index > -1) array.splice(index, 1);
+    array = array.map(helper => {return helper.children[0]}); // center point of the pyramid
+
+    // Equal to:
+    //var direction = new THREE.vector3(mouse.x, mouse.y, 0.5).unproject(viewCamera).sub(origin).normalize();
+    //this.applyMatrix4( camera.projectionMatrixInverse ).applyMatrix4( camera.matrixWorld );
+    var inverseProj = new THREE.Matrix4().getInverse(viewCamera.projectionMatrix);
+    var world = viewCamera.matrixWorld.clone();
+
+    var origin = viewCamera.position.clone();
+    var direction = new THREE.Vector3(mouse.x, mouse.y, 0.5).applyMatrix4(inverseProj).applyMatrix4(world).sub(origin).normalize();
+
+    raycaster.set(origin, direction);
+
+    return raycaster.intersectObjects(array, true);
+};
+
 /* Clean --------------------------------------------- */
 function basicClean() {
     params = {
+        collection: {name: undefined, url: undefined},
         cameras: {size: 10000, zoom: 0.5},
-        environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0},
+        environment: {radius: 8000, epsilon: 5000, center: new THREE.Vector3(0.), elevation: 0, far: 15000},
         distortion: {rmax: 1},
-        interpolation: {duration: 3.}
+        interpolation: {duration: 3.},
+        load: {number: 0},
+        bookmark: {type: 0, linewidth: 3, style: 1},
+        footprint: {color: new THREE.Color(0x000000).getHex(), linewidth: 3},
+        mouse: {timer: 0, delay: 200, prevent: false}
     };
 
     const camera = new PhotogrammetricCamera();
@@ -574,10 +843,12 @@ function basicClean() {
 
     while(environment.children.length > 2) environment.remove(environment.children[environment.children.length - 1]);
 
-    backgroundSphere.visible = true;
-    worldPlane.visible = true;
+    if(backgroundSphere) backgroundSphere.visible = true;
+    if(worldPlane) worldPlane.visible = true;
 
     Object.keys(textures).forEach(key => textures[key].dispose());
+    Object.keys(images).forEach(key => delete images[key]);
+    
     while(cameras.children.length) cameras.remove(cameras.children[0]);
 
     if(multipleTextureMaterial) multipleTextureMaterial.clean();

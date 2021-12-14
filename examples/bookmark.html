@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>HistoVis - Bookmark</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link rel="shortcut icon" href="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.ico">
+        <style>
+            html { height: 100%; }
+            body { margin: 0; overflow: hidden; height: 100%; }
+        </style>
+
+        <link rel="stylesheet" href="style/w3.css">
+        <link rel="stylesheet" href="style/font-awesome.min.css">
+    </head>
+    <body>
+        <!-- Rendering -->
+        <script src="../dist/itowns.js"></script>
+        <script>
+            // Itowns library
+            var itowns = histovis.itowns;
+        </script>
+        
+        <script src="../dist/three.js"></script>
+        <script>
+            // Three library
+            var THREE = histovis.THREE;
+            // Data GUI
+            var GUI = histovis.GUI;
+        </script>
+
+        <script src="../dist/three-additional.js"></script>
+        <script>
+            // Three additional
+            var MapControls = histovis.MapControls;
+            var PLYLoader = histovis.PLYLoader;
+
+            var LineMaterial = histovis.LineMaterial;
+            var LineSegmentsGeometry = histovis.LineSegmentsGeometry;
+            var LineSegments2 = histovis.LineSegments2;
+
+            var lineVS = histovis.lineVS;
+            var lineFS = histovis.lineFS;
+            var spriteVS = histovis.spriteVS;
+            var spriteFS = histovis.spriteFS;
+        </script>
+
+        <script src="../dist/photogrammetric-camera.js"></script>
+        <script>
+            // Files Management
+            var FetchSource = histovis.photogrammetricCamera.FetchSource;
+            var FilesSource = histovis.photogrammetricCamera.FilesSource;
+            // Parsers
+            var MatisOrientationParser = histovis.photogrammetricCamera.MatisOrientationParser;
+            var MicmacOrientationParser = histovis.photogrammetricCamera.MicmacOrientationParser;
+            var GoogleOrientationParser = histovis.GoogleOrientationParser;
+            // Materials
+            var OrientedImageMaterial = histovis.photogrammetricCamera.OrientedImageMaterial;
+            var imageVS = histovis.photogrammetricCamera.imageVS;
+            var imageFS = histovis.photogrammetricCamera.viewFS;
+            // Photogrammetric camera
+            var PhotogrammetricCamera = histovis.photogrammetricCamera.PhotogrammetricCamera;
+        </script>
+
+        <script src="../dist/cluster.js"></script>
+        <script>
+            var HistoricalImage = histovis.HistoricalImage;
+        </script>
+
+        <script src="js/helper/photogrammetricHelperBasic.js"></script>
+        <script>
+            /* ------------------------- Main ------------------------ */
+            init();
+            var gui = initGUI();
+            animate();
+
+            /* ----------------------- Functions --------------------- */
+            function init() {
+                // HTML container for the rendering scene
+                var container = document.createElement('div');
+                document.body.appendChild(container);
+
+                // Sizes
+                width = window.innerWidth;
+                height = window.innerHeight;
+
+                // Renderer
+                renderer = new THREE.WebGLRenderer({antialias: true});
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(width, height);
+                container.appendChild(renderer.domElement);
+
+                // Scene
+                scene = new THREE.Scene();
+                //scene.background = new THREE.Color(0xf0f0f0);
+                scene.background = new THREE.Color(0xffffff);
+
+                // Cameras 
+                cameras = new THREE.Group();
+                cameras.visible = true;
+                scene.add(viewCamera);
+                scene.add(cameras);
+
+                // Materials
+                basicMaterial = initBasicMaterial();
+                wireMaterial = initWireMaterial();
+                [textureMaterialUniforms, textureMaterial] = initTextureMaterial(imageVS, imageFS, uvTexture);
+                viewMaterialUniforms = initCameraMaterialUniforms(imageVS, imageFS, uvTexture);
+                markerMaterialUniforms = initMarkerMaterialUniforms(lineVS, lineFS);
+                spriteMaterialUniforms = initSpriteMaterialUniforms(spriteTexture, spriteVS, spriteFS);
+
+                textureMaterial.debug.debugOpacity = 0;
+            
+                // Environment
+                environment = new THREE.Group();
+                backgroundSphere = initBackgroundSphere(textureMaterial);
+                worldPlane = initWorldPlane(textureMaterial);
+
+                environment.add(backgroundSphere);
+                environment.add(worldPlane);
+                environment.visible = false;
+                scene.add(environment);
+
+                // Controls
+                setBasicControls();
+
+                // Bookmark currently selected
+                marker = new THREE.Group();
+
+                // Raycaster and mouse
+                raycaster = new THREE.Raycaster();
+                raycaster.camera = viewCamera;
+
+                mouse = new THREE.Vector2();
+
+                // Event listeners
+                window.addEventListener('resize', onWindowResize, false);
+                document.addEventListener('keydown', onDocumentKeyDown, false);
+
+                document.addEventListener('mousemove', onDocumentMouseMove, false);
+
+                // Available collections
+                collections = {
+                    Maurepas: function() {
+                        clean();
+                        raycaster.params.Points.threshold = 0.5;
+                        collection = 'collections/maurepas/';
+                        loadJSON(textureMaterial, updateEnvironment, server + collection);
+                    },
+                    Frejus: function() {
+                        clean();
+                        raycaster.params.Points.threshold = 100;
+                        backgroundSphere.visible = false;
+                        collection = 'collections/frejus/';
+                        loadJSON(textureMaterial, updateEnvironment, server + collection, 'index-full.json');
+                    },
+                    Viabon: function() {
+                        clean();
+                        raycaster.params.Points.threshold = 10;
+                        backgroundSphere.visible = false;
+                        collection = 'collections/viabon/';
+                        loadJSON(textureMaterial, updateEnvironment, server + collection);
+                    },
+                    SaintMartin: function() {
+                        clean();
+                        raycaster.params.Points.threshold = 0.5;
+                        collection = 'collections/saint_martin/';
+                        loadJSON(textureMaterial, updateEnvironment, server + collection);
+                    }
+                };
+
+                /* Clean --------------------------------------------- */
+                function clean() {
+                    basicClean();
+
+                    // Configurations
+                    params.bookmark.type = 1;
+                }
+            }
+
+            function initGUI() {
+                var gui = new GUI();
+
+                // Collections options
+                function menuCollections(){
+                    for(const key in collections) collectionsGUI.add(collections, key);
+                    collectionsGUI.closed = false;
+                }
+
+                var collectionsGUI = gui.addFolder('Collections');
+                menuCollections();
+
+                // Bookmarks
+                function updateMarkerLineFromGUI(value) {
+                    params.bookmark.linewidth = value;
+                    Object.values(markerMaterials).forEach(m => m.linewidth = value);
+                }
+
+                function updateMarkerFromGUI(value) {
+                    params.bookmark.style = value;
+                    var markerVisible;
+
+                    if(value == 1) markerVisible = [0, 2, 4];
+                    else if(value == 2) markerVisible = [0, 2];
+                    else markerVisible = [0, 1];
+
+                    cameras.children.forEach(cam => {
+                        var i = 0;
+                        cam.children[0].children.forEach(m => {m.visible = markerVisible.includes(i); i++;});
+                    });
+                }
+                
+                var markerGUI = gui.addFolder('Bookmarks');
+                markerGUI.show = markerGUI.add(cameras, 'visible').name('show');
+                markerGUI.line = markerGUI.add(params.bookmark, 'linewidth', 1, 10, 0.5).onChange(updateMarkerLineFromGUI);
+                markerGUI.style = markerGUI.add(params.bookmark, 'style', {frustum: 1, extended: 2, target: 3})
+                    .name('style').onChange(updateMarkerFromGUI);
+
+                // Texture Camera
+                var textureGUI = gui.addFolder('Historical Image');
+                textureGUI.opacity = textureGUI.add(textureMaterial, 'opacity', 0, 1);
+                textureGUI.borderSharpness = textureGUI.add(textureMaterial.debug, 'borderSharpness', 2, 1000).name("sharpness");
+
+                // Background 
+                function updateElevationFromGUI(value) {
+                    params.environment.elevation = value;
+                    updateEnvironment();
+                }
+
+                var backgroundGUI = gui.addFolder('Background');
+                backgroundGUI.size = backgroundGUI.add(textureMaterial, 'size', 0.5, 5);
+                backgroundGUI.diffuseColorGrey = backgroundGUI.add(textureMaterial.debug, 'diffuseColorGrey');
+                backgroundGUI.wireframe = backgroundGUI.add(textureMaterial, 'wireframe');
+                backgroundGUI.sphere = backgroundGUI.add(backgroundSphere, 'visible').name('sphere visible');
+                backgroundGUI.plane = backgroundGUI.add(worldPlane, 'visible').name('plane visible');
+                backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -200, 200)
+                    .name('plane elevation').onChange(updateElevationFromGUI);
+
+                // Update controls functions
+                gui.updateFromCameras = function updateFromCameras(textureCamera, environment) {
+                    backgroundGUI.sphere.setValue(environment.children[0].visible);
+                    backgroundGUI.plane.setValue(environment.children[1].visible);
+                    var name = textureCamera.name;
+                    if (name.length > 0) {
+                        if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
+                        textureGUI.name = 'Hist: ' + name;
+                    }     
+                }
+                return gui;
+            };
+
+            function render() {
+                renderer.render(scene, viewCamera);
+            }
+
+            function animate(timestamp) {
+                requestAnimationFrame(animate);
+
+                interpolateCamera(timestamp);
+                updateMaterial(textureMaterial);
+                gui.updateFromCameras(textureCamera, environment);
+                render();
+            }
+        </script>
+    </body>
+</html>

@@ -127,13 +127,6 @@ function initBuildings(material) {
     }
 }
 
-/* Loading ------------------------------------------- */
-function loadJSONGlobe(material, path, file) {
-    file = file || 'index-geo.json';
-    loadJSON(material, path, file);
-    updateEnvironmentGlobe();
-}
-
 /* Sets ---------------------------------------------- */
 function setGlobeControls() {
     if (controls) controls.dispose();

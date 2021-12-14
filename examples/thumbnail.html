@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>HistoVis - Thumbnail</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link rel="shortcut icon" href="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.ico">
+        <style>
+            html { height: 100%; }
+            body { margin: 0; overflow: hidden; height: 100%; }
+            canvas {width: 100% !important; height: 100% !important;}
+            #myContent { z-index: 1; height: calc(100% - 20px); width: calc(100% - 180px); left:170px; 
+                position:fixed; top:10px; }
+            #viewerDiv { z-index: 2; height: calc(100% - 180px); width: calc(100% - 220px); left: 110px;
+                top: 90px; position: absolute; border-width: 0; outline: none; }
+            #myGUI { position: absolute; top: 0px; left: 0px; z-index: 3; }
+            #myCluster { height: 100%; width: 100%; transition: all 0.4s ease 0s; }
+            #mySlider { position:fixed; top:10px; height:calc(100% - 20px); width:150px; left:10px; }
+            #colSlider { display: flex; overflow-y: scroll; height: 100%; flex-direction: column}
+            .gallery { position: absolute; transition: all 0.1s ease 0s; z-index: 2; }
+        </style>
+
+        <link rel="stylesheet" href="style/w3.css">
+        <link rel="stylesheet" href="style/font-awesome.min.css">
+    </head>
+    <body class="w3-white">
+
+        <!-- Page Content -->
+        <div id="myContent" class="w3-display-container w3-white w3-card">
+            <!-- Canvas -->
+            <div id="viewerDiv" class = "w3-card w3-white w3-margin-bottom">
+                <div id="myGUI"></div>
+            </div>
+            <!-- Clustering -->
+            <div id="myCluster"></div>
+        </div>
+
+        <!-- Slider Menu -->
+        <div id="mySlider" class="w3-container w3-padding w3-white w3-card w3-animate-bottom">
+            <div id="colSlider" class="w3-row-padding"></div>
+        </div>
+
+        <!-- Rendering -->
+        <script src="../dist/itowns.js"></script>
+        <script>
+            // Itowns library
+            var itowns = histovis.itowns;
+        </script>
+        
+        <script src="../dist/three.js"></script>
+        <script>
+            // Three library
+            var THREE = histovis.THREE;
+            // Data GUI
+            var GUI = histovis.GUI;
+        </script>
+
+        <script src="../dist/three-additional.js"></script>
+        <script>
+            // Three additional
+            var MapControls = histovis.MapControls;
+            var PLYLoader = histovis.PLYLoader;
+        </script>
+
+        <script src="../dist/photogrammetric-camera.js"></script>
+        <script>
+            // Files Management
+            var FetchSource = histovis.photogrammetricCamera.FetchSource;
+            var FilesSource = histovis.photogrammetricCamera.FilesSource;
+            // Parsers
+            var MatisOrientationParser = histovis.photogrammetricCamera.MatisOrientationParser;
+            var MicmacOrientationParser = histovis.photogrammetricCamera.MicmacOrientationParser;
+            var GoogleOrientationParser = histovis.GoogleOrientationParser;
+            // Materials
+            var OrientedImageMaterial = histovis.photogrammetricCamera.OrientedImageMaterial;
+            var imageVS = histovis.photogrammetricCamera.imageVS;
+            var imageFS = histovis.photogrammetricCamera.viewFS;
+            // Photogrammetric camera
+            var PhotogrammetricCamera = histovis.photogrammetricCamera.PhotogrammetricCamera;
+        </script>
+
+        <script src="../dist/cluster.js"></script>
+        <script>
+            // Clustering
+            var HistoricalImage = histovis.HistoricalImage;
+            var HierarchicalCluster = histovis.HierarchicalCluster;
+            var Border = histovis.Border;
+            var MinMaxGUIHelper = histovis.MinMaxGUIHelper;
+        </script>
+
+        <script src="js/helper/photogrammetricHelperBasic.js"></script>
+        <script src="js/helper/photogrammetricHelperBasicGlobe.js"></script>
+
+        <script src="js/helper/clusterHelper.js"></script>
+        <script>
+            /* ---------------------- Variables ---------------------- */
+            var widthView, heightView;
+            globeRendering = false;
+
+            /* ---------------------- Variables ---------------------- */
+            var border, names = [];
+            var static = false;
+
+            /* ------------------------- Main ------------------------ */
+            init();
+            var gui = initGUI();
+            animate();
+
+            /* ----------------------- Functions --------------------- */
+            function init() {
+                // HTML container for the rendering scene
+                var container = document.getElementById('viewerDiv');
+
+                // Sizes
+                width = window.innerWidth;
+                height = window.innerHeight;
+
+                // Globe
+                initGlobe(container, viewCamera);
+
+                // Renderer
+                renderer = view.mainLoop.gfxEngine.renderer;
+
+                // 2D canvas
+                var canvas = renderer.getContext().canvas;
+                // Border
+                border = new Border(canvas.width, canvas.height);
+
+                // Scene
+                scene = new THREE.Scene();
+                //scene.background = new THREE.Color(0xf0f0f0);
+                scene.background = new THREE.Color(0xffffff);
+
+                // Cameras 
+                cameras = new THREE.Group();
+                cameras.visible = false;
+                scene.add(viewCamera);
+
+                // Materials
+                basicMaterial = initBasicMaterial();
+                wireMaterial = initWireMaterial();
+                [textureMaterialUniforms, textureMaterial] = initTextureMaterial(imageVS, imageFS, uvTexture);
+                viewMaterialUniforms = initCameraMaterialUniforms(imageVS, imageFS, uvTexture);
+
+                textureMaterial.debug.debugOpacity = 0;
+
+                // Environment
+                environment = new THREE.Group();
+                backgroundSphere = initBackgroundSphere(textureMaterial);
+                worldPlane = initWorldPlane(textureMaterial);
+
+                environment.add(backgroundSphere);
+                environment.add(worldPlane);
+                environment.visible = false;
+
+                initBuildings(textureMaterial);
+
+                // Event listeners
+                window.addEventListener('resize', onWindowResize, false);
+                document.addEventListener('keydown', onDocumentKeyDown, false);
+
+                // Available collections
+                collections = {
+                    Maurepas: function() {
+                        clean();
+                        setBasicControls();
+                        scene.add(environment);
+                        scene.add(cameras);
+                        globeRendering = false;
+                        params.collection.name = 'Maurepas';
+                        params.collection.url = 'collections/maurepas/';
+                        loadJSON(textureMaterial, updateEnvironment, server + params.collection.url);
+                    },
+                    Frejus: function() {
+                        clean();
+                        setBasicControls();
+                        scene.add(environment);
+                        scene.add(cameras);
+                        backgroundSphere.visible = false;
+                        globeRendering = false;
+                        params.collection.name = 'Frejus';
+                        params.collection.url = 'collections/frejus/';
+                        loadJSON(textureMaterial, updateEnvironment, server + params.collection.url);
+                    },
+                    FrejusGeo: function() {
+                        clean();
+                        setGlobeControls();
+                        view.scene.add(environment);
+                        view.scene.add(cameras);
+                        globeRendering = true;
+                        backgroundSphere.visible = false;
+                        params.collection.name = 'FrejusGeo';
+                        params.collection.url = 'collections/ign_frejus/';
+                        loadJSON(textureMaterial, updateEnvironmentGlobe, server + params.collection.url, 'index-2008.json');
+                    },
+                    Viabon: function() {
+                        clean();
+                        setBasicControls();
+                        scene.add(environment);
+                        scene.add(cameras);
+                        backgroundSphere.visible = false;
+                        globeRendering = false;
+                        params.collection.name = 'ViabonGeo';
+                        params.collection.url = 'collections/viabon/';
+                        loadJSON(textureMaterial, updateEnvironment, server + params.collection.url);
+                    },
+                    ViabonGeo: function() {
+                        clean();
+                        setGlobeControls();
+                        view.scene.add(environment);
+                        view.scene.add(cameras);
+                        globeRendering = true;
+                        backgroundSphere.visible = false;
+                        params.collection.name = 'ViabonGeo';
+                        params.collection.url = 'collections/viabon/';
+                        loadJSON(textureMaterial, updateEnvironmentGlobe, server + params.collection.url, 'index-geo.json');
+                    },
+                    SaintMartin: function() {
+                        clean();
+                        setBasicControls();
+                        scene.add(environment);
+                        scene.add(cameras);
+                        globeRendering = false;
+                        params.collection.name = 'SaintMartin';
+                        params.collection.url = 'collections/saint_martin/';
+                        loadJSON(textureMaterial, updateEnvironment, server + params.collection.url);
+                    }
+                };
+
+                /* Rendering ----------------------------------------- */
+                view.render = function render() {
+                    var g = view.mainLoop.gfxEngine;
+                    var r = g.renderer;
+
+                    r.setRenderTarget(null);
+                    r.clear();
+
+                    if(globeRendering) r.render(view.scene, view.camera.camera3D);
+                    else r.render(scene, viewCamera);
+                }
+
+                /* Clean --------------------------------------------- */
+                function clean() {
+                    basicClean();
+
+                    static = false;
+
+                    params.clustering = {active: false, images: 0, clusters: 0};
+
+                    var c = document.getElementById('colSlider');
+                    c.innerHTML = "";
+                }
+            }
+
+            function initGUI() {
+                var gui = new GUI({ autoPlace: false });
+
+                // Collections options
+                function menuCollections(){
+                    for(const key in collections) collectionsGUI.add(collections, key);
+                    collectionsGUI.closed = false;
+                }
+
+                var collectionsGUI = gui.addFolder('Collections');
+                menuCollections();
+
+                // Texture Camera
+                var textureGUI = gui.addFolder('Historical Image');
+                textureGUI.opacity = textureGUI.add(textureMaterial, 'opacity', 0, 1);
+                textureGUI.borderSharpness = textureGUI.add(textureMaterial.debug, 'borderSharpness', 2, 1000).name("sharpness");
+
+                // Background 
+                function updateElevationFromGUI(value) {
+                    params.environment.elevation = value;
+                    updateEnvironment();
+                }
+
+                var backgroundGUI = gui.addFolder('Background');
+                backgroundGUI.size = backgroundGUI.add(textureMaterial, 'size', 0.5, 5);
+                backgroundGUI.diffuseColorGrey = backgroundGUI.add(textureMaterial.debug, 'diffuseColorGrey');
+                backgroundGUI.wireframe = backgroundGUI.add(textureMaterial, 'wireframe');
+                backgroundGUI.sphere = backgroundGUI.add(backgroundSphere, 'visible').name('sphere visible');
+                backgroundGUI.plane = backgroundGUI.add(worldPlane, 'visible').name('plane visible');
+                backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -200, 200)
+                    .name('plane elevation').onChange(updateElevationFromGUI);
+
+                // Update controls functions
+                gui.updateFromCameras = function updateFromCameras(textureCamera, environment) {
+                    backgroundGUI.sphere.setValue(environment.children[0].visible);
+                    backgroundGUI.plane.setValue(environment.children[1].visible);
+                    var name = textureCamera.name;
+                    if (name.length > 0) {
+                        if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
+                        textureGUI.name = 'Hist: ' + name;
+                    }     
+                }
+
+                var guiContainer = document.getElementById('myGUI');
+                guiContainer.appendChild(gui.domElement);
+
+                return gui;
+            };
+
+            function animate(timestamp) {
+                if (prevCamera.timestamp !== undefined) {
+                    Object.keys(images).forEach(k => {
+                        if(textureCamera.name == k) images[k].camera.children[0].userData.selected = true;
+                        else if(images[k].camera) images[k].camera.children[0].userData.selected = false;
+                    });
+                    view.notifyChange(view.camera.camera3D, true);
+                }
+
+                if(names.length != cameras.children.length) {
+                    cameras.children.forEach(cam => {
+                        if(!names.includes(cam.name))
+                            names.push(cam.name)
+                    });
+                }
+
+                if(!static && params.load.number > 0 && params.load.number == cameras.children.length && 
+                    params.load.number == Object.values(images).length) {
+                    var c = document.getElementById('colSlider');
+                    Object.values(images).forEach(img => c.appendChild(handleSimpleCluster(img)));
+                    static = true;
+                }
+
+                var viewer = document.getElementById('viewerDiv');
+                if(widthView != viewer.clientWidth || heightView != viewer.clientHeight) {
+                    widthView = viewer.clientWidth;
+                    heightView = viewer.clientHeight;
+                    view.resize(widthView, heightView);
+
+                    // 2D canvas
+                    var canvas = renderer.getContext().canvas;
+                    border = new Border(canvas.width, canvas.height);
+                }
+
+                params.clustering.images = cameras.children.length;
+                params.clustering.clusters = cameras.children.length;
+
+                updateCluster(viewCamera);
+
+                interpolateCamera(timestamp);
+                updateMaterial(textureMaterial);
+                gui.updateFromCameras(textureCamera, environment);
+
+                // Update the selection in the non-spatial images
+                Object.keys(images).forEach(k => {
+                    if(images[k].camera) {
+                        var img = document.getElementById('ns-'+k);
+                        if(img) updateSimpleImage(img, images[k], images[k].camera.children[0].userData.selected);
+                    }
+                });
+
+                if(!globeRendering) view.notifyChange(true);
+                requestAnimationFrame(animate);
+            }
+        </script>
+    </body>
+</html>

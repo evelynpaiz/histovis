@@ -23,6 +23,11 @@
         </nav>
         <!-- Page Content -->
         <div id="myContent" class="w3-display-container w3-white w3-card">
+            <!-- Info -->
+            <div id="description">
+                <p><b>Historical Image Metadata</b></p>
+                <ul id="info"></ul>
+            </div>
             <!-- Canvas -->
             <div id="viewerDiv" class = "w3-card w3-white w3-margin-bottom"></div>
             <!-- Loading Screen -->
@@ -107,6 +112,8 @@
         <script src="js/web/timeline.js"></script>
 
         <script>
+            /* ---------------------- Variables ---------------------- */
+            var widthView, heightView;
             /* ------------------------- Main ------------------------ */
             init();
             var gui = initGUI();
@@ -185,7 +192,6 @@
                 // Raycaster and mouse
                 raycaster = new THREE.Raycaster();
                 raycaster.params.Line.threshold = 3;
-                raycaster.params.Points.threshold = 30;
                 raycaster.camera = viewCamera;
 
                 mouse = new THREE.Vector2();
@@ -215,29 +221,12 @@
 
                 // Available collections
                 collections = {
-                    /*Viabon: {
+                    IGNFrejus2008: {
                         selection: false,
                         color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
                         cameras: [],
                         load: function() {
-                            params.collection.name = 'Viabon';
-                            spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
-                            markerMaterialUniforms.color = collections[params.collection.name].color;
-                            params.collection.url = 'collections/viabon/';
-                            loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-geo.json', params.collection.name);
-                            params.interpolation.fitCamera = true;
-                        },
-                        unload: function() {
-                            var name = 'Viabon';
-                            unloadJSONGlobe(name);
-                        }
-                    },*/
-                    IGNFrejus2008: {
-                        selection: false,
-                        //color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
-                        color: new THREE.Color(0x8895cd).getHex(),
-                        cameras: [],
-                        load: function() {
+                            raycaster.params.Points.threshold = 100;
                             params.collection.name = 'IGNFrejus2008';
                             spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
@@ -253,9 +242,9 @@
                     IGNFrejus1989: {
                         selection: false,
                         color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
-                        //color: new THREE.Color(0x8895cd).getHex(),
                         cameras: [],
                         load: function() {
+                            raycaster.params.Points.threshold = 100;
                             params.collection.name = 'IGNFrejus1989';
                             spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
@@ -270,14 +259,14 @@
                     },
                     IGNFrejus1966: {
                         selection: false,
-                        //color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
-                        color: new THREE.Color(0xb4c13f).getHex(),
+                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
                         cameras: [],
                         load: function() {
+                            raycaster.params.Points.threshold = 100;
                             params.collection.name = 'IGNFrejus1966';
                             spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
-                            params.collection.url = 'collections/frejus/';
+                            params.collection.url = 'collections/frejus_original/';
                             loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-geo.json', params.collection.name);
                             params.interpolation.fitCamera = true;
                         },
@@ -288,16 +277,18 @@
                     },
                     IGNNanterreBridge: {
                         selection: false,
-                        //color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
-                        color: new THREE.Color(0xf27793).getHex(),
+                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
                         cameras: [],
                         load: function() {
+                            raycaster.params.Points.threshold = 70;
                             params.collection.name = 'IGNNanterreBridge';
                             spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
                             params.collection.url = 'collections/ign_nanterre/';
                             loadJSONGlobe(multipleTextureMaterial, server + params.collection.url, 'index-bridge.json', params.collection.name);
+                            loadNSJSON(server + params.collection.url, 'index-bridge-nonspatial.json');
                             params.interpolation.fitCamera = true;
+                            params.collection.nonspatial = true;
                         },
                         unload: function() {
                             var name = 'IGNNanterreBridge';
@@ -306,10 +297,10 @@
                     },
                     IGNNanterreBuilding: {
                         selection: false,
-                        //color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
-                        color: new THREE.Color(0xf27793).getHex(),
+                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
                         cameras: [],
                         load: function() {
+                            raycaster.params.Points.threshold = 70;
                             params.collection.name = 'IGNNanterreBuilding';
                             spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
@@ -324,10 +315,10 @@
                     },
                     NiepceCharlesGros: {
                         selection: false,
-                        //color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
-                        color: new THREE.Color(0xb98958).getHex(),
+                        color: new THREE.Color(0xffffff).setHex(Math.random() * 0xffffff).getHex(),
                         cameras: [],
                         load: function() {
+                            raycaster.params.Points.threshold = 10;
                             params.collection.name = 'NiepceCharlesGros';
                             spriteMaterialUniforms.uniforms.color = collections[params.collection.name].color;
                             markerMaterialUniforms.color = collections[params.collection.name].color;
@@ -375,6 +366,7 @@
                     params.clustering = {active: false, images: 0, clusters: 0};
                     //params.timeline = {intervals: 12};
                     params.scene = {source: 1, style: 0, color: 0xeeeeee};
+                    raycaster.params.Points.threshold = 5;
                 }
             }
 
@@ -444,7 +436,29 @@
                     });
                 }
 
+                function updateNonSpatialFromGUI(value) {
+                    params.collection.nonspatial = value;
+
+                    var content = document.getElementById('myContent');
+                    var slider = document.getElementById('mySlider');
+
+                    if(value) {
+                        content.style.width = 'calc(100% - 380px)';
+                        content.style.left = '370px';
+
+                        slider.style.width = '150px';
+                        slider.style.visibility = 'visible';
+                    } else {
+                        content.style.width = 'calc(100% - 220px)';
+                        content.style.left = '210px';
+
+                        slider.style.width = '0px';
+                        slider.style.visibility = 'hidden';
+                    }
+                }
+
                 var textureGUI = gui.addFolder('Historical Cameras');
+                textureGUI.nonSpatial = textureGUI.add(params.collection, 'nonspatial').onChange(updateNonSpatialFromGUI);
                 const minMaxTexture = new MinMaxGUIHelper(params.cameras, 'near', 'far', 0.1);
                 textureGUI.near = textureGUI.add(minMaxTexture, 'min', 0.1, 30, 0.1).name('near').onChange(updateHistoricalImagesFromGUI);
                 textureGUI.far = textureGUI.add(minMaxTexture, 'max', 0.1, 15000, 0.1).name('far').onChange(updateHistoricalImagesFromGUI);
@@ -572,7 +586,7 @@
                 }
                 var backgroundGUI = sceneGUI.addFolder('background');
                 backgroundGUI.far = backgroundGUI.add(params.environment, 'far', 0.1, 15000, 0.1);
-                backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -200, 200)
+                backgroundGUI.elevation = backgroundGUI.add(params.environment, 'elevation', -100, 100)
                     .name('plane elevation').onChange(updateElevationFromGUI);
                 backgroundGUI.sphere = backgroundGUI.add(backgroundSphere, 'visible').name('sphere visible');
                 backgroundGUI.plane = backgroundGUI.add(worldPlane, 'visible').name('plane visible');
@@ -608,6 +622,12 @@
 
                     clusteringGUI.clusters.max(params.clustering.images);
                     clusteringGUI.clusters.setValue(Math.floor(params.clustering.clusters));
+
+                    var name = textureCamera.name;
+                    if (name.length > 0) {
+                        if(name.length > 20) name = name.substr(0,8)+'[..]'+name.substr(-8,8);
+                        textureGUI.name = params.collection.overview ? 'Historical Cameras ' : 'Hist: ' + name;
+                    }   
                 }
 
                 return gui;
@@ -622,6 +642,49 @@
                     updateCluster(viewCamera);
                     //updateTimeline();
                     gui.updateGUI();
+
+                    // Check if there has been a change
+                    var viewer = document.getElementById('viewerDiv');
+                    if(widthView != viewer.clientWidth || heightView != viewer.clientHeight) {
+                        widthView = viewer.clientWidth;
+                        heightView = viewer.clientHeight;
+                        view.resize(widthView, heightView);
+
+                        // 2D canvas
+                        var canvas = renderer.getContext().canvas;
+                        border = new Border(canvas.width, canvas.height);
+                    }
+
+                    // Add the non-spatialized thumbnails
+                    if(!params.collection.overview && params.collection.nonspatial &&
+                    prevCamera.timestamp !== undefined && timestamp > nextCamera.timestamp) {
+                        var c = document.getElementById('colSlider');
+                        c.innerHTML = "";
+
+                        var imgs = nsimages[textureCamera.name];
+                        if(imgs) Object.values(imgs).forEach(img => c.appendChild(handleSimpleCluster(img)));
+                    } else if(params.collection.overview) {
+                        var c = document.getElementById('colSlider');
+                        c.innerHTML = "";
+                    }
+
+                    // Update the selection in the non-spatial images
+                    Object.keys(images).forEach(k => {
+                        if(images[k].camera) {
+                            var img = document.getElementById('ns-'+k);
+                            var selected = images[k].camera.children[0].userData.selected;
+                            selected = marker.name == images[k].camera.name ? true : selected;
+                            if(img) updateSimpleImage(img, images[k], selected);
+                        }
+                    });
+
+                    // Update metadata
+                    if(prevCamera.timestamp !== undefined && timestamp > nextCamera.timestamp) {
+                        var info = document.getElementById("info");
+                        if(params.collection.overview) info.innerHTML = ' ';
+                        else info.innerHTML = '<li>Name: '+ textureCamera.name 
+                            + '</li><li>Date:' + dates[textureCamera.name].year + '</li>';
+                    }
 
                     // Interpolate
                     interpolateCameraGlobe(timestamp);

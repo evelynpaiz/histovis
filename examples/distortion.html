@@ -80,8 +80,8 @@
             function init() {
                 // HTML container for the rendering scene
                 var container = document.createElement('div');
-                    container.setAttribute('id', 'viewerDiv');
-                    document.body.appendChild(container);
+                container.setAttribute('id', 'viewerDiv');
+                document.body.appendChild(container);
 
                 // Sizes
                 width = window.innerWidth;
@@ -136,19 +136,6 @@
 
                 // Available collections
                 collections = {
-                    Sample: function(){
-                        clean();
-                        setBasicControls();
-                        scene.add(environment);
-                        scene.add(cameras);
-                        worldPlane.visible = false;
-                        globeRendering = false;
-                        var path = 'https://raw.githubusercontent.com/micmacIGN/Documentation/master/FilesSamples/';
-                        var source = new FetchSource(path);
-                        loadOrientation('Orientation-00.xml', source);
-                        loadOrientation('Orientation-1.xml', source);
-                        updateEnvironment();
-                    },
                     Maurepas: function() {
                         clean();
                         setBasicControls();
@@ -156,8 +143,7 @@
                         scene.add(cameras);
                         globeRendering = false;
                         collection = 'collections/maurepas/';
-                        loadJSON(textureMaterial, server + collection);
-                        updateEnvironment();
+                        loadJSON(textureMaterial, updateEnvironment, server + collection);
                     },
                     Frejus: function() {
                         clean();
@@ -166,9 +152,19 @@
                         scene.add(cameras);
                         backgroundSphere.visible = false;
                         globeRendering = false;
-                        collection = 'collections/frejus/';
-                        loadJSON(textureMaterial, server + collection);
-                        updateEnvironment();
+                        collection = 'collections/frejus_original/';
+                        loadJSON(textureMaterial, updateEnvironment, server + collection);
+                    },
+                    FrejusGeo: function() {
+                        clean();
+                        setGlobeControls();
+                        view.scene.add(environment);
+                        view.scene.add(cameras);
+                        globeRendering = true;
+                        backgroundSphere.visible = false;
+                        textureMaterial.distortion.method = 2;
+                        collection = 'collections/frejus_original/';
+                        loadJSON(textureMaterial, updateEnvironmentGlobe, server + collection, 'index-geo.json');
                     },
                     Viabon: function() {
                         clean();
@@ -178,7 +174,7 @@
                         backgroundSphere.visible = false;
                         globeRendering = false;
                         collection = 'collections/viabon/';
-                        loadJSON(textureMaterial, server + collection);
+                        loadJSON(textureMaterial, updateEnvironment, server + collection);
                     },
                     ViabonGeo: function() {
                         clean();
@@ -189,7 +185,7 @@
                         backgroundSphere.visible = false;
                         textureMaterial.distortion.method = 2;
                         collection = 'collections/viabon/';
-                        loadJSONGlobe(textureMaterial, server + collection);
+                        loadJSON(textureMaterial, updateEnvironmentGlobe, server + collection, 'index-geo.json');
                     },
                     SaintMartin: function() {
                         clean();
@@ -198,8 +194,7 @@
                         scene.add(cameras);
                         globeRendering = false;
                         collection = 'collections/saint_martin/';
-                        loadJSON(textureMaterial, server + collection);
-                        updateEnvironment();
+                        loadJSON(textureMaterial, updateEnvironment, server + collection);
                     }
                 };
 
@@ -268,7 +263,7 @@
                 textureGUI.borderSharpness = textureGUI.add(textureMaterial.debug, 'borderSharpness', 2, 1000).name("sharpness");
                 textureGUI.distort = textureGUI.add(textureMaterial.distortion, 'texture').name('distort');
                 textureGUI.extrapol = textureGUI.add(textureMaterial.extrapolation, 'texture').name('extrapolate');
-                textureGUI.add(params.distortion, 'rmax', 0, 10).name('rmax ratio').onChange(updateRmaxFromGUI);
+                textureGUI.add(params.distortion, 'rmax', 0, 1).name('rmax ratio').onChange(updateRmaxFromGUI);
 
                 // Background 
                 function updateElevationFromGUI(value) {
@@ -318,13 +313,8 @@
             }
 
             function animate(timestamp) {
-                if (prevCamera.timestamp !== undefined) {
-                    view.notifyChange(view.camera.camera3D, true);
-                    if (timestamp > nextCamera.timestamp) {
-                        if(globeRendering) updateEnvironmentGlobe();
-                        else updateEnvironment();
-                    }
-                }
+                if (prevCamera.timestamp !== undefined) view.notifyChange(view.camera.camera3D, true);
+
                 interpolateCamera(timestamp);
                 updateMaterial(textureMaterial);
                 textureMaterial.setUniforms(sceneMaterial.uniforms);

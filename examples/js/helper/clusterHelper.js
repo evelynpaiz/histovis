@@ -90,6 +90,38 @@ function updateImageGallery(array) {
 }
 
 /* Handling ------------------------------------------ */
+function handleSimpleCluster(image) {
+    // Container to hold both images
+    var container = document.createElement('div'); 
+
+    var img = handleSimpleImage(image);
+    img.style.width = '100%';
+    img.style.height = '100%';
+
+    function loadDataOneCluster() {
+        container.setAttribute('class', 'w3-round w3-col w3-center w3-black w3-border w3-border-black');
+        container.appendChild(img);
+
+        updateSimpleImage(img, image);
+
+        img.style.display = 'block';
+    }
+
+    if(img.complete) {
+        loadDataOneCluster();
+    } else {
+        img.onload = function () { 
+            loadDataOneCluster();
+        };
+
+        img.onerror = () => {
+            //img.src = 'data/uv.jpg';
+        };
+    }
+    
+    return container;
+}
+
 function handleOneCluster(image, position) {
     var selected = image.camera.children[0].userData.selected;
     if(marker) selected = marker.name == image.camera.name ? marker.name == image.camera.name : selected; 
@@ -99,7 +131,9 @@ function handleOneCluster(image, position) {
     // If the image already exists, then just move it
     if(img && img.parentElement.size == 1) {
         // Update the border color of the image
-        img.style.setProperty('border-color', `#${markerMaterials[image.camera.name].color.getHexString()}`, 'important');
+        var color =  Object.keys(markerMaterials).length > 0 ?
+        markerMaterials[image.camera.name].color : new THREE.Color(0x000000);
+        img.style.setProperty('border-color', `#${color.getHexString()}`, 'important');
         // Update the container
         var container = img.parentElement;
         setBorder(container, selected);
@@ -154,7 +188,9 @@ function handleTwoCluster(image, position) {
     // Check first if the images are already displayed in the scene
     var img = image.map(i => {
         var item = document.getElementById(i.camera.name);
-        if(item) item.style.setProperty('border-color', `#${markerMaterials[i.camera.name].color.getHexString()}`, 'important');
+        var color =  Object.keys(markerMaterials).length > 0 ?
+        markerMaterials[i.camera.name].color : new THREE.Color(0x000000);
+        if(item) item.style.setProperty('border-color', `#${color.getHexString()}`, 'important');
         return item;
     }); 
     var first = img[0];
@@ -271,7 +307,9 @@ function handleMultipleCluster(image, position) {
     // Check first if the images are already been displayed 
     var img = image.map(i => {
         var item = document.getElementById(i.camera.name);
-        if(item) item.style.setProperty('border-color', `#${markerMaterials[i.camera.name].color.getHexString()}`, 'important');
+        var color =  Object.keys(markerMaterials).length > 0 ?
+        markerMaterials[i.camera.name].color : new THREE.Color(0x000000);
+        if(item) item.style.setProperty('border-color', `#${color.getHexString()}`, 'important');
         return item;
     }); 
     var first = img[0];
@@ -361,24 +399,133 @@ function handleMultipleCluster(image, position) {
     return container;
 }
 
-function handleSimpleImage(name) {
+function handleSimpleImage(image, event = true) {
     var img = document.createElement('img');
-    //var color = new THREE.Color(0xf27793);
-    var color = new THREE.Color(0x000000);
-    //img.src = 'data/img/' + name;
-    img.src = name;
-    img.setAttribute('id', 'test');
-    //img.setAttribute('title', 'image: ' + name);
+    var color =  Object.keys(markerMaterials).length > 0 && markerMaterials[image.camera.name] ?
+        markerMaterials[image.camera.name].color : new THREE.Color(0x000000);
+
+    img.src = image.url || 'data/uv.jpg';
+    img.setAttribute('id', 'ns-' + image.camera.name);
+    img.setAttribute('title', 'image: ' + image.camera.name);
 
     img.setAttribute('class', 'w3-image w3-border w3-round');
     img.setAttribute('style', `cursor:pointer; display:block; border-color:#${color.getHexString()}!important; width:100%`);
 
+    var camera = getCameraByName(image.camera.name);
+
+    if(camera && event) {
+        image.camera = camera;
+        img.addEventListener("mouseover", event => {
+            
+            if(marker) onImageMouseOver();
+            else image.camera.children[0].userData.selected = true;
+
+            updateSimpleImage(img, image, image.camera.children[0].userData.selected);
+        });
+        img.addEventListener("mouseout", event => {
+            if (marker) onImageMouseOut();
+            else if(image.camera.name != textureCamera.name)
+                image.camera.children[0].userData.selected = false;
+
+            updateSimpleImage(img, image, image.camera.children[0].userData.selected);
+        });
+    
+        img.addEventListener('click', event => {
+            params.mouse.timer = setTimeout(function() {
+            if (!params.mouse.prevent) {
+                if(marker) onImageMouseClick();
+                else setCamera(image.camera);
+            }
+            params.mouse.prevent = false;
+            }, params.mouse.delay);
+
+            updateSimpleImage(img, image, image.camera.children[0].userData.selected);
+        });
+    
+        img.addEventListener('dblclick', event => {
+            clearTimeout(params.mouse.timer);
+            params.mouse.prevent = true;
+            if(marker) onImageMouseDblClick();
+
+            updateSimpleImage(img, image, image.camera.children[0].userData.selected);
+        });
+    }
+
     return img;
+
+    function onImageMouseOver() {
+        marker = image.camera.children[0];
+        if(params.collection.overview || (textureCamera.name != "" && marker.name != textureCamera.name)) marker.children[3].visible = params.markers.far && true;
+        scaleCameraHelper();
+        if(!params.collection.overview) {
+            if(!marker.userData.selected){
+                multipleTextureMaterial.setCamera(image.camera, {color: markerMaterials[image.camera.name].color});
+            }
+        } else {
+            multipleTextureMaterial.setBorder(image.camera, {showImage: true});
+        }
+    }
+
+    function onImageMouseOut() {
+        marker = image.camera.children[0];
+        downscaleCameraHelper();
+        marker.children[3].visible = false;
+        if(!params.collection.overview) {
+            if(!marker.userData.selected) {
+                multipleTextureMaterial.removeCamera(image.camera);
+            }
+        } else {
+            multipleTextureMaterial.setBorder(image.camera, {showImage: false});
+        }
+    }
+
+    function onImageMouseClick() {
+        if(params.collection.overview) {
+            var cams = [];
+            names.forEach(name => {
+                const array = cameras.children;
+                const index = array.findIndex(cam => cam.name == name);
+                if(index > -1) {
+                    cams.push(array[(index + array.length) % array.length]);
+                }
+            });
+            cleanExtent(cams);
+            params.collection.overview = false;
+        }
+        
+        marker = image.camera.children[0];
+        if(!marker.userData.selected) {
+            marker.userData.selected = true;
+            multipleTextureMaterial.setCamera(image.camera, {color: markerMaterials[image.camera.name].color});
+        } else {
+            marker.userData.selected = false;
+            multipleTextureMaterial.removeCamera(image.camera);
+        }
+    }
+    
+    function onImageMouseDblClick() {
+        if(params.collection.overview) {
+            var cams = [];
+            names.forEach(name => {
+                const array = cameras.children;
+                const index = array.findIndex(cam => cam.name == name);
+                if(index > -1) {
+                    cams.push(array[(index + array.length) % array.length]);
+                }
+            });
+            cleanExtent(cams);
+            params.collection.overview = false;
+        }
+
+        marker = image.camera.children[0];
+        setCamera(image.camera);
+    }
 }
 
 function handleGalleryImage(image, event = true, bigImage = undefined) {
     var img = document.createElement('img');
-    var color =  markerMaterials[image.camera.name].color;
+    var color =  Object.keys(markerMaterials).length > 0 ?
+        markerMaterials[image.camera.name].color : new THREE.Color(0x000000);
     img.src = image.url || 'data/uv.jpg';
     img.setAttribute('id', image.camera.name);
     img.setAttribute('title', 'image: ' + image.camera.name);
@@ -386,14 +533,20 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
     if(event) {
         img.addEventListener("mouseover", event => {
             if(bigImage) bigImage.src = image.url || 'data/uv.jpg';
-            onImageMouseOver();
+            if(marker) onImageMouseOver();
+            else image.camera.children[0].userData.selected = true;
         });
-        img.addEventListener("mouseout", onImageMouseOut);
+        img.addEventListener("mouseout", event => {
+            if (marker) onImageMouseOut();
+            else if(image.camera.name != textureCamera.name)
+                image.camera.children[0].userData.selected = false;
+        });
     
         img.addEventListener('click', event => {
             params.mouse.timer = setTimeout(function() {
             if (!params.mouse.prevent) {
-                onImageMouseClick();
+                if(marker) onImageMouseClick();
+                else setCamera(image.camera);
             }
             params.mouse.prevent = false;
             }, params.mouse.delay);
@@ -402,7 +555,7 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
         img.addEventListener('dblclick', event => {
             clearTimeout(params.mouse.timer);
             params.mouse.prevent = true;
-            onImageMouseDblClick();
+            if(marker) onImageMouseDblClick();
         });
     }
 
@@ -413,7 +566,7 @@ function handleGalleryImage(image, event = true, bigImage = undefined) {
 
     function onImageMouseOver() {
         marker = image.camera.children[0];
-        if(textureCamera.name != "" && marker.name != textureCamera.name) marker.children[3].visible = params.markers.far && true;
+        if(params.collection.overview || (textureCamera.name != "" && marker.name != textureCamera.name)) marker.children[3].visible = params.markers.far && true;
         scaleCameraHelper();
         if(!params.collection.overview) {
             if(!marker.userData.selected){
@@ -641,4 +794,17 @@ function setBorder(container, selected) {
 
     if(selected) container.className += " w3-border-large";
     else  container.className += " w3-border";
+}
+
+function updateSimpleImage(img, image, selected = false) {
+    var container = img.parentElement;
+
+    if(image.camera.children.length > 0 && !selected) selected = image.camera.children[0].userData.selected;
+
+    var color = selected ? cselected : cnormal;
+    var style = `padding: 0px; margin-bottom: 10px; margin-top: 10px; 
+        background:#${color.getHexString()} !important; border-color:#${color.getHexString()} !important;`;
+    container.setAttribute('style', style);
+
+    setBorder(container, selected);
 }

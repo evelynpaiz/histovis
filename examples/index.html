@@ -29,6 +29,9 @@
                 <p>HistoVis is a WebGL based application using <a href="https://threejs.org" class="w3-hover-text-green">three.js</a>
                     & <a href="http://www.itowns-project.org" class="w3-hover-text-green">itowns</a> frameworks.  
                 </p>
+                <button onclick="goExamples('multiple.html')" class="w3-button w3-light-gray w3-padding-large w3-margin-top">
+                    <i class="fa fa-desktop fa-fw"></i> Go to HistoVis
+                </button>
                 <button onclick="window.location.href='https://github.com/epaizreyes/histovis';" class="w3-button w3-light-gray w3-padding-large w3-margin-top">
                     <i class="fa fa-github fa-fw"></i> Github Repository
                 </button>
@@ -36,22 +39,68 @@
 
             <!-- Context Section -->
             <div class="w3-content w3-container w3-padding-64" id="about">
-                <h3 class="w3-center w3-xxlarge"><b>About</b></h1>
-                <div class="w3-half w3-margin-bottom">
+                <h3 class="w3-center w3-xxlarge">About</h3>
+                <div class="w3-center">
                     <h5 class = "w3-center">
-                        Dissertation project centered on a continuous immersive visualization and navigation 
-                        through time and space of historical image collections. 
+                        Dissertation project centered on the <b>visual exploration of historical image collections:
+                        an interactive approach through space and time</b>. 
                     </h5>
                     <p class = "w3-justify">
                         A co-visualization of the historical photos within a 3D model of the photographed scene
-                        is proposed and the research aims for: (i) the visualization (saliently and spatially) of 
-                        these photographs; (ii) the treatment of scientific obstacles (large data volume, heterogeneity
-                            between images, distortions, and data uncertainties) that appear when old pictures are placed 
-                            in a contemporary 3D environment.
+                        is proposed and the research aims for: (i) an <b>artifact correction</b> on the rendering side 
+                        for the visualization of historical photographs inside a 3D environment; (ii) the <b>graphic 
+                        representation</b> related to the enhancement of the user’s navigation and interaction.
                     </p>
                 </div>
-                <div class="w3-half w3-center">
-                    <img src="https://histovis.s3.eu-west-3.amazonaws.com/samples/camera.jpeg" style="width:100%">
+                <div class="w3-center">
+                    <img src="https://histovis.s3.eu-west-3.amazonaws.com/samples/camera.jpeg" style="width:60%">
+                </div>
+            </div>
+
+            <!-- Demos section -->
+            <div class="w3-content w3-container w3-padding-64" id="examples">
+                <h3 class="w3-center w3-xxlarge">Examples</h3>
+                <p class="w3-center"><em>Here you can find the separate available demos.<br>Click on the image to open the demo.</em></p><br>
+                
+                
+                <div class="w3-row-padding w3-center">
+                    <div class="w3-col w3-half">
+                        <div class="w3-display-container w3-card">
+                            <div class="w3-display-topleft w3-pink w3-padding">Distorted View</div>
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/samples/gifs/low/demo-distortion.jpg" style="width:100%" onclick="goExamples('distortion.html')" class="w3-hover-opacity" alt="Distortion demo">
+                            <div class="w3-container w3-white">
+                                <p>
+                                    A distorted view to counteract the distortion on the image.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="w3-col w3-half">
+                        <div class="w3-display-container w3-card">
+                            <div class="w3-display-topleft w3-pink w3-padding">Bookmarks</div>
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/samples/gifs/low/demo-bookmark.jpg" style="width:100%" onclick="goExamples('bookmark.html')" class="w3-hover-opacity" alt="Distortion demo">
+                            <div class="w3-container w3-white">
+                                <p>
+                                    An interactive graphical object to locate where each photo was captured.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w3-row-padding w3-center">
+                    <div class="w3-col w3-half">
+                        <div class="w3-display-container w3-card">
+                            <div class="w3-display-topleft w3-pink w3-padding">Thumbnails</div>
+                            <img src="https://histovis.s3.eu-west-3.amazonaws.com/samples/gifs/low/demo-thumbnail.jpg" style="width:100%" onclick="goExamples('thumbnail.html')" class="w3-hover-opacity" alt="Distortion demo">
+                            <div class="w3-container w3-white">
+                                <p>
+                                    An interactive graphical object to locate where each photo was captured.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -121,7 +170,13 @@
                     </a>
                 </i>
             </footer>
-
         </div>
+
+        <script>
+            // Script to open renderer with a specific page
+            function goExamples(element){
+                window.location.href = element;
+            }
+        </script>
     </body>
 </html>

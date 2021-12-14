@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>HistoVis - Visibility Heat Map</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link rel="shortcut icon" href="https://histovis.s3.eu-west-3.amazonaws.com/icons/histovis.ico">
+        <style>
+            html { height: 100%; }
+            body { margin: 0; overflow: hidden; height: 100%; }
+        </style>
+    </head>
+    <body>
+        <!-- Rendering -->
+        <script src="../dist/itowns.js"></script>
+        <script>
+            // Itowns library
+            var itowns = histovis.itowns;
+        </script>
+        
+        <script src="../dist/three.js"></script>
+        <script>
+            // Three library
+            var THREE = histovis.THREE;
+            // Data GUI
+            var GUI = histovis.GUI;
+        </script>
+
+        <script src="../dist/three-additional.js"></script>
+        <script>
+            // Three additional
+            var MapControls = histovis.MapControls;
+            var PLYLoader = histovis.PLYLoader;
+        </script>
+
+        <script src="../dist/photogrammetric-camera.js"></script>
+        <script>
+            // Files Management
+            var FetchSource = histovis.photogrammetricCamera.FetchSource;
+            var FilesSource = histovis.photogrammetricCamera.FilesSource;
+            // Parsers
+            var MatisOrientationParser = histovis.photogrammetricCamera.MatisOrientationParser;
+            var MicmacOrientationParser = histovis.photogrammetricCamera.MicmacOrientationParser;
+            var GoogleOrientationParser = histovis.GoogleOrientationParser;
+            // Materials
+            var OrientedImageMaterial = histovis.photogrammetricCamera.OrientedImageMaterial;
+            var MultipleOrientedImageMaterial = histovis.photogrammetricCamera.MultipleOrientedImageMaterial;
+            var imageVS = histovis.photogrammetricCamera.imageVS;
+            var multipleVS = histovis.photogrammetricCamera.multipleVS;
+            var multipleFS = histovis.photogrammetricCamera.multipleFS;
+            var footprintFS = histovis.photogrammetricCamera.footprintFS;
+            var viewFS = histovis.photogrammetricCamera.viewFS;
+            // Photogrammetric camera
+            var PhotogrammetricCamera = histovis.photogrammetricCamera.PhotogrammetricCamera;
+        </script>
+
+        <script src="../dist/cluster.js"></script>
+        <script>
+            var HistoricalImage = histovis.HistoricalImage;
+        </script>
+
+        <script src="js/helper/photogrammetricHelperBasic.js"></script>
+        <script>
+            /* ------------------------- Main ------------------------ */
+            init();
+            var gui = initGUI();
+            animate();
+
+            /* ----------------------- Functions --------------------- */
+            function init() {
+                // HTML container for the rendering scene
+                var container = document.createElement('div');
+                document.body.appendChild(container);
+
+                // Sizes
+                width = window.innerWidth;
+                height = window.innerHeight;
+
+                // Renderer
+                renderer = new THREE.WebGLRenderer({antialias: true});
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(width, height);
+                container.appendChild(renderer.domElement);
+
+                // Scene
+                scene = new THREE.Scene();
+                //scene.background = new THREE.Color(0xf0f0f0);
+                scene.background = new THREE.Color(0xffffff);
+
+                // Cameras 
+                cameras = new THREE.Group();
+                cameras.visible = false;
+                scene.add(viewCamera);
+                scene.add(cameras);
+
+                // Materials
+                basicMaterial = initBasicMaterial();
+                wireMaterial = initWireMaterial();
+                [multipleTextureMaterialUniforms, multipleTextureMaterial] = initMultipleTextureMaterial(
+                    multipleVS, footprintFS, uvTexture, renderer);
+                viewMaterialUniforms = initCameraMaterialUniforms(imageVS, viewFS, uvTexture);
+
+                multipleTextureMaterial.footprint.border = 0;
+                multipleTextureMaterial.footprint.image = false;
+
+                // Environment
+                environment = new THREE.Group();
+                environment.visible = false;
+                scene.add(environment);
+
+                // Controls
+                setBasicControls();
+
+                // Event listeners
+                window.addEventListener('resize', onWindowResize, false);
+                document.addEventListener('keydown', onDocumentKeyDown, false);
+
+                // Available collections
+                collections = {
+                    Maurepas: function() {
+                        clean();
+                        collection = 'collections/maurepas/';
+                        loadJSON(multipleTextureMaterial, updateEnvironment, server + collection);
+                    },
+                    Frejus: function() {
+                        clean();
+                        collection = 'collections/frejus/';
+                        loadJSON(multipleTextureMaterial, updateEnvironment, server + collection);
+                    },
+                    Viabon: function() {
+                        clean();
+                        collection = 'collections/viabon/';
+                        loadJSON(multipleTextureMaterial, updateEnvironment, server + collection);
+                    },
+                    SaintMartin: function() {
+                        clean();
+                        collection = 'collections/saint_martin/';
+                        loadJSON(multipleTextureMaterial, updateEnvironment, server + collection);
+                    }
+                };
+
+                /* Clean --------------------------------------------- */
+                function clean() {
+                    basicClean();
+                }
+            }
+
+            function initGUI() {
+                var gui = new GUI();
+
+                // Collections options
+                function menuCollections(){
+                    for(const key in collections) collectionsGUI.add(collections, key);
+                    collectionsGUI.closed = false;
+                }
+
+                var collectionsGUI = gui.addFolder('Collections');
+                menuCollections();
+
+                // Heatmap
+                var heatmapGUI = gui.addFolder('Heatmap');
+                heatmapGUI.show = heatmapGUI.add(multipleTextureMaterial.debug, 'showImage').name('show');
+                heatmapGUI.opacity = heatmapGUI.add(multipleTextureMaterial, 'opacity', 0, 1);
+
+                // Background 
+                var backgroundGUI = gui.addFolder('Background');
+                backgroundGUI.size = backgroundGUI.add(multipleTextureMaterial, 'size', 0.5, 5);
+                backgroundGUI.diffuseColorGrey = backgroundGUI.add(multipleTextureMaterial.debug, 'diffuseColorGrey');
+                backgroundGUI.wireframe = backgroundGUI.add(multipleTextureMaterial, 'wireframe');
+            }
+
+            function setHeatmap() {
+                cameras.children.forEach(cam => {
+                    multipleTextureMaterial.setCamera(cam);
+                });
+            }
+
+            function render() {
+                renderer.render(scene, viewCamera);
+            }
+
+            function animate(timestamp) {
+                requestAnimationFrame(animate);
+
+                // Set the heat map
+                if(params.load.number != cameras.children.lengt) setHeatmap();
+                    
+                interpolateCamera(timestamp);
+                //gui.updateFromCameras(viewCamera, textureCamera, cameras, environment);
+                render();
+            }
+        </script>
+    </body>
