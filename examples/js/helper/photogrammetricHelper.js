@@ -518,6 +518,8 @@ function getIntersectedObject(event) {
     // calculate mouse position
     saveMouseCoords(event);
 
+    if(!cameras.visible) return [];
+    
     // Camera markers except the texture camera
     var array = cameras.children.map(camera => {return camera.children[0]}); // camera helpers
     const index = array.findIndex(helper => helper.name == textureCamera.name);
